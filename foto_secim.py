@@ -225,7 +225,7 @@ class App(tk.Tk):
         upper.grid_columnconfigure(0, weight=1)
         upper.grid_columnconfigure(1, weight=1)
         info = RoundedFrame(upper, radius=14, fill=CARD, outline=SOFT, parent_bg=SHELL)
-        info.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        info.grid(row=0, column=0, sticky="new", padx=(0, 6))
         ibody = info.body
         tk.Label(ibody, text="\U0001F4C1  Albüm Bilgileri", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
         tk.Label(ibody, text="Fotoğrafların bulunduğu klasörü ve albüm adını belirleyin.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 8))
@@ -257,7 +257,7 @@ class App(tk.Tk):
         self.album_entry.bind("<FocusIn>", _album_focus_in)
         self.album_entry.bind("<FocusOut>", _album_focus_out)
         counts = RoundedFrame(upper, radius=14, fill=CARD, outline=SOFT, parent_bg=SHELL)
-        counts.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        counts.grid(row=0, column=1, sticky="new", padx=(6, 0))
         cbody = counts.body
         tk.Label(cbody, text="\U0001F5BC  Seçim Sayıları", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
         tk.Label(cbody, text="Seçilmesi gereken fotoğraf adetlerini belirleyin.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 6))
@@ -273,7 +273,7 @@ class App(tk.Tk):
             lb.pack(side="left")
             badge = tk.Label(row, text="(Zorunlu)", bg=CARD, fg="#7d888f", font=("Segoe UI", 8))
             badge.pack(side="right", padx=(6, 0))
-            sbox = RoundedFrame(row, radius=8, fill=FIELD, outline="#43525c", parent_bg=CARD, fixed_width=64)
+            sbox = RoundedFrame(row, radius=8, fill=FIELD, outline="#43525c", parent_bg=CARD, fixed_width=86)
             sbox.pack(side="right")
             spin = tk.Spinbox(sbox.body, from_=1, to=99, textvariable=var, width=4, bg=FIELD, fg="#f0f2f4", buttonbackground="#2b3840", relief="flat", bd=0, font=("Segoe UI", 10, "bold"), justify="center", disabledbackground="#10171c", disabledforeground="#59636a", state="normal" if (enabled_var is None or enabled_var.get()) else "disabled")
             spin.pack(padx=6, pady=4)
