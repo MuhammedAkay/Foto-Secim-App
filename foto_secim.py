@@ -41,6 +41,136 @@ class PhotoCard(tk.Frame):
         else:
             self.configure(bg=PANEL2,highlightbackground=LINE,highlightthickness=1); self.status.configure(text="",bg=PANEL2)
 
+
+def draw_rr(cv, x0, y0, x1, y1, r, fill=None, outline=None, width=1, tags=()):
+    r = max(1, min(r, (x1 - x0) / 2, (y1 - y0) / 2))
+    if fill is not None:
+        cv.create_rectangle(x0 + r, y0, x1 - r, y1, fill=fill, outline="", tags=tags)
+        cv.create_rectangle(x0, y0 + r, x1, y1 - r, fill=fill, outline="", tags=tags)
+        for ax, ay in ((x0, y0), (x1 - 2 * r, y0), (x0, y1 - 2 * r), (x1 - 2 * r, y1 - 2 * r)):
+            cv.create_oval(ax, ay, ax + 2 * r, ay + 2 * r, fill=fill, outline="", tags=tags)
+    if outline is not None:
+        cv.create_line(x0 + r, y0, x1 - r, y0, fill=outline, width=width, tags=tags)
+        cv.create_line(x0 + r, y1, x1 - r, y1, fill=outline, width=width, tags=tags)
+        cv.create_line(x0, y0 + r, x0, y1 - r, fill=outline, width=width, tags=tags)
+        cv.create_line(x1, y0 + r, x1, y1 - r, fill=outline, width=width, tags=tags)
+        cv.create_arc(x0, y0, x0 + 2 * r, y0 + 2 * r, start=90, extent=90, style="arc", outline=outline, width=width, tags=tags)
+        cv.create_arc(x1 - 2 * r, y0, x1, y0 + 2 * r, start=0, extent=90, style="arc", outline=outline, width=width, tags=tags)
+        cv.create_arc(x0, y1 - 2 * r, x0 + 2 * r, y1, start=180, extent=90, style="arc", outline=outline, width=width, tags=tags)
+        cv.create_arc(x1 - 2 * r, y1 - 2 * r, x1, y1, start=270, extent=90, style="arc", outline=outline, width=width, tags=tags)
+
+class RoundedFrame(tk.Frame):
+    def __init__(self, master, radius=12, fill="#212c37", outline="#3a4750", border=1, parent_bg=None, fixed_width=None, **kw):
+        super().__init__(master, bg=(parent_bg if parent_bg is not None else master.cget("bg")), **kw)
+        self._rf_r = radius
+        self._rf_fill = fill
+        self._rf_ol = outline
+        self._rf_bw = border
+        self._rf_busy = False
+        self.cv = tk.Canvas(self, bg=self.cget("bg"), highlightthickness=0, bd=0)
+        if fixed_width is not None:
+            self.cv.configure(width=fixed_width)
+        self.cv.pack(fill="both", expand=True)
+        pad = border + 1
+        self._rf_pad = pad
+        self.body = tk.Frame(self.cv, bg=fill)
+        self._rf_win = self.cv.create_window((pad, pad), window=self.body, anchor="nw")
+        self.cv.bind("<Configure>", self._rf_layout)
+        self.body.bind("<Configure>", self._rf_layout)
+    def _rf_layout(self, e=None):
+        if self._rf_busy:
+            return
+        self._rf_busy = True
+        try:
+            pad = self._rf_pad
+            cw = self.cv.winfo_width()
+            if cw > 2 * pad + 10:
+                bw = cw - 2 * pad
+                try:
+                    if self.body.winfo_width() != bw:
+                        self.body.configure(width=bw)
+                except Exception:
+                    pass
+            try:
+                req_h = self.body.winfo_reqheight()
+            except Exception:
+                req_h = 0
+            if req_h > 0:
+                nh = req_h + 2 * pad
+                try:
+                    if abs(self.cv.winfo_height() - nh) > 1:
+                        self.cv.configure(height=nh)
+                except Exception:
+                    pass
+            self.cv.delete("rr")
+            w = self.cv.winfo_width()
+            h = self.cv.winfo_height()
+            if w > 6 and h > 6:
+                draw_rr(self.cv, 1, 1, w - 1, h - 1, self._rf_r, fill=self._rf_fill, outline=self._rf_ol, width=self._rf_bw, tags="rr")
+                try:
+                    self.cv.tag_lower("rr")
+                except Exception:
+                    pass
+        finally:
+            self._rf_busy = False
+
+class GoldButton(tk.Canvas):
+    def __init__(self, master, text, command, parent_bg, height=46, radius=11, font=("Segoe UI", 12, "bold"), width=None):
+        super().__init__(master, bg=parent_bg, highlightthickness=0, bd=0, cursor="hand2", height=height)
+        if width is not None:
+            self.configure(width=width)
+        self._gb_text = text
+        self._gb_cmd = command
+        self._gb_r = radius
+        self._gb_font = font
+        self._gb_hover = False
+        self.bind("<Configure>", lambda e: self._gb_draw())
+        self.bind("<Button-1>", lambda e: self._gb_cmd())
+        self.bind("<Enter>", lambda e: self._gb_set(True))
+        self.bind("<Leave>", lambda e: self._gb_set(False))
+        self.after(10, self._gb_draw)
+    def _gb_set(self, hover):
+        self._gb_hover = hover
+        self._gb_draw()
+    def _gb_draw(self):
+        try:
+            w = self.winfo_width()
+            h = self.winfo_height()
+            if w < 10 or h < 10:
+                return
+            self.delete("gb")
+            fill = "#e3c795" if self._gb_hover else "#cdb183"
+            draw_rr(self, 1, 1, w - 1, h - 1, self._gb_r, fill=fill, tags="gb")
+            self.create_text(w / 2, h / 2 + 1, text=self._gb_text, fill="#1a222a", font=self._gb_font, tags="gb")
+        except Exception:
+            pass
+
+def rounded_photo_corners(cv, base_pil, x0, y0, wdt, hgt, r, tags):
+    refs = []
+    try:
+        if base_pil is None or wdt < 60 or hgt < 60:
+            return refs
+        bw, bh = base_pil.size
+        big = 4
+        m0 = Image.new("L", (r * big, r * big), 255)
+        ImageDraw.Draw(m0).ellipse((0, 0, r * big * 2, r * big * 2), fill=0)
+        m0 = m0.resize((r, r), Image.Resampling.LANCZOS)
+        spots = [(x0, y0, False, False), (x0 + wdt - r, y0, True, False),
+                 (x0, y0 + hgt - r, False, True), (x0 + wdt - r, y0 + hgt - r, True, True)]
+        for (px, py, fx, fy) in spots:
+            if px < 0 or py < 0 or px + r > bw or py + r > bh:
+                continue
+            crop = base_pil.crop((px, py, px + r, py + r)).convert("RGBA")
+            m = m0.transpose(Image.FLIP_LEFT_RIGHT) if fx else m0
+            m = m.transpose(Image.FLIP_TOP_BOTTOM) if fy else m
+            crop.putalpha(m)
+            ref = ImageTk.PhotoImage(crop)
+            refs.append(ref)
+            cv.create_image(px, py, image=ref, anchor="nw", tags=tags)
+    except Exception:
+        pass
+    return refs
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__(); self.title("FotoSecim • Düğün Fotoğraf Seçim Uygulaması"); self.geometry("1280x800"); self.minsize(1080,700); self.configure(bg=BG)
@@ -67,39 +197,51 @@ class App(tk.Tk):
 
     def _build_setup(self):
         self.clear()
-        CARD="#1d2630"; CARD2="#232f39"; SHELL="#141c22"; FIELD="#242f39"
+        CARD = "#212c37"
+        CARD2 = "#27333f"
+        SHELL = "#161e25"
+        FIELD = "#2b3641"
+        SOFT = "#3a4750"
         try:
             from PIL import Image as _PILImage
             self._bg_src = _PILImage.open(str(self._resource("assets", "bg_setup.jpg"))).convert("RGB")
         except Exception:
             self._bg_src = None
         self._bg_ref = None
+        self._bg_pil = None
+        self._corner_refs = []
         self._setup_job = None
         root = tk.Frame(self, bg=BG)
         root.pack(fill="both", expand=True)
         cv = tk.Canvas(root, bg=BG, highlightthickness=0)
         cv.pack(fill="both", expand=True)
         self.setup_canvas = cv
-        shell = tk.Frame(cv, bg=SHELL, highlightbackground="#2b3840", highlightthickness=1)
+        shell = tk.Frame(cv, bg=SHELL, bd=0, highlightthickness=0)
         self._setup_shell = shell
         inner = tk.Frame(shell, bg=SHELL)
-        inner.pack(fill="both", expand=True, padx=16, pady=12)
+        inner.pack(fill="both", expand=True, padx=18, pady=14)
         upper = tk.Frame(inner, bg=SHELL)
         upper.pack(fill="x")
         upper.grid_columnconfigure(0, weight=1)
         upper.grid_columnconfigure(1, weight=1)
-        info = tk.Frame(upper, bg=CARD, highlightbackground=LINE, highlightthickness=1)
+        info = RoundedFrame(upper, radius=14, fill=CARD, outline=SOFT, parent_bg=SHELL)
         info.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
-        tk.Label(info, text="\U0001F4C1  Albüm Bilgileri", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
-        tk.Label(info, text="Fotoğrafların bulunduğu klasörü ve albüm adını belirleyin.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 8))
-        tk.Label(info, text="Albüm Klasörü", bg=CARD, fg="#d7dce0", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=14)
-        fr = tk.Frame(info, bg=CARD)
+        ibody = info.body
+        tk.Label(ibody, text="\U0001F4C1  Albüm Bilgileri", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
+        tk.Label(ibody, text="Fotoğrafların bulunduğu klasörü ve albüm adını belirleyin.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 8))
+        tk.Label(ibody, text="Albüm Klasörü", bg=CARD, fg="#d7dce0", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=14)
+        fr = tk.Frame(ibody, bg=CARD)
         fr.pack(fill="x", padx=14, pady=(4, 8))
-        tk.Entry(fr, textvariable=self.folder_var, state="readonly", bg=FIELD, fg="#aeb7bd", readonlybackground=FIELD, relief="flat", font=("Segoe UI", 9)).pack(side="left", fill="x", expand=True, ipady=7, padx=(0, 6))
-        tk.Button(fr, text="\U0001F4C1", command=self.choose_folder, bg=GOLD, fg="#11161a", activebackground=GOLD2, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=10, pady=4).pack(side="right")
-        tk.Label(info, text="Albüm Adı (Klasör Adı)", bg=CARD, fg="#d7dce0", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=14)
-        self.album_entry = tk.Entry(info, textvariable=self.output_name_var, bg=FIELD, fg=TEXT, insertbackground=TEXT, relief="flat", bd=0, font=("Segoe UI", 9))
-        self.album_entry.pack(fill="x", padx=14, pady=(4, 12), ipady=7)
+        fbox = RoundedFrame(fr, radius=8, fill=FIELD, outline="#43525c", parent_bg=CARD)
+        fbox.pack(side="left", fill="x", expand=True, padx=(0, 6))
+        folder_entry = tk.Entry(fbox.body, textvariable=self.folder_var, state="readonly", bg=FIELD, fg="#aeb7bd", readonlybackground=FIELD, relief="flat", bd=0, font=("Segoe UI", 9))
+        folder_entry.pack(fill="x", padx=8, pady=6)
+        GoldButton(fr, "\U0001F4C1", self.choose_folder, CARD, height=32, radius=8, font=("Segoe UI", 11, "bold"), width=48).pack(side="right")
+        tk.Label(ibody, text="Albüm Adı (Klasör Adı)", bg=CARD, fg="#d7dce0", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=14)
+        abox = RoundedFrame(ibody, radius=8, fill=FIELD, outline="#43525c", parent_bg=CARD)
+        abox.pack(fill="x", padx=14, pady=(4, 12))
+        self.album_entry = tk.Entry(abox.body, textvariable=self.output_name_var, bg=FIELD, fg=TEXT, insertbackground=TEXT, relief="flat", bd=0, font=("Segoe UI", 9))
+        self.album_entry.pack(fill="x", padx=8, pady=6)
         self._album_placeholder = "Örn: Ayşe & Mehmet"
         def _album_focus_in(e=None):
             if self.output_name_var.get() == self._album_placeholder:
@@ -114,15 +256,16 @@ class App(tk.Tk):
             self.album_entry.configure(fg="#7d888f")
         self.album_entry.bind("<FocusIn>", _album_focus_in)
         self.album_entry.bind("<FocusOut>", _album_focus_out)
-        counts = tk.Frame(upper, bg=CARD, highlightbackground=LINE, highlightthickness=1)
+        counts = RoundedFrame(upper, radius=14, fill=CARD, outline=SOFT, parent_bg=SHELL)
         counts.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
-        tk.Label(counts, text="\U0001F5BC  Seçim Sayıları", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
-        tk.Label(counts, text="Seçilmesi gereken fotoğraf adetlerini belirleyin.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 6))
+        cbody = counts.body
+        tk.Label(cbody, text="\U0001F5BC  Seçim Sayıları", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
+        tk.Label(cbody, text="Seçilmesi gereken fotoğraf adetlerini belirleyin.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 6))
         self.count_spins = {}
         self.count_badges = {}
         self.count_labels = {}
         def count_row(icon, label, var, enabled_var=None):
-            row = tk.Frame(counts, bg=CARD)
+            row = tk.Frame(cbody, bg=CARD)
             row.pack(fill="x", padx=14, pady=5)
             ic = tk.Label(row, text=icon, bg=CARD, fg="#b7c0c6", font=("Segoe UI", 11))
             ic.pack(side="left", padx=(0, 8))
@@ -130,19 +273,22 @@ class App(tk.Tk):
             lb.pack(side="left")
             badge = tk.Label(row, text="(Zorunlu)", bg=CARD, fg="#7d888f", font=("Segoe UI", 8))
             badge.pack(side="right", padx=(6, 0))
-            spin = tk.Spinbox(row, from_=1, to=99, textvariable=var, width=5, bg=FIELD, fg="#f0f2f4", buttonbackground="#2b3840", relief="flat", font=("Segoe UI", 10, "bold"), justify="center", disabledbackground="#10171c", disabledforeground="#59636a", state="normal" if (enabled_var is None or enabled_var.get()) else "disabled")
-            spin.pack(side="right", ipady=4)
+            sbox = RoundedFrame(row, radius=8, fill=FIELD, outline="#43525c", parent_bg=CARD, fixed_width=64)
+            sbox.pack(side="right")
+            spin = tk.Spinbox(sbox.body, from_=1, to=99, textvariable=var, width=4, bg=FIELD, fg="#f0f2f4", buttonbackground="#2b3840", relief="flat", bd=0, font=("Segoe UI", 10, "bold"), justify="center", disabledbackground="#10171c", disabledforeground="#59636a", state="normal" if (enabled_var is None or enabled_var.get()) else "disabled")
+            spin.pack(padx=6, pady=4)
             self.count_spins[label] = spin
             self.count_badges[label] = badge
             self.count_labels[label] = (lb, ic, row)
         count_row("\U0001F5BC", "Normal Fotoğraf Sayısı", self.count_var)
         count_row("\U0001F5BC", "Albüm Kapağı", self.cover_count_var, self.cover_var)
         count_row("\U0001F5BC", "Tablo Fotoğrafı", self.table_count_var, self.table_var)
-        extra = tk.Frame(inner, bg=CARD, highlightbackground=LINE, highlightthickness=1)
+        extra = RoundedFrame(inner, radius=14, fill=CARD, outline=SOFT, parent_bg=SHELL)
         extra.pack(fill="x", pady=(10, 0))
-        tk.Label(extra, text="⚙  Ekstra Seçenekler", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
-        tk.Label(extra, text="İhtiyacınıza göre ek seçimleri aktif edebilirsiniz.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 6))
-        opts = tk.Frame(extra, bg=CARD)
+        ebody = extra.body
+        tk.Label(ebody, text="⚙  Ekstra Seçenekler", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
+        tk.Label(ebody, text="İhtiyacınıza göre ek seçimleri aktif edebilirsiniz.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 6))
+        opts = tk.Frame(ebody, bg=CARD)
         opts.pack(fill="x", padx=14, pady=(0, 10))
         opts.grid_columnconfigure(0, weight=1)
         opts.grid_columnconfigure(1, weight=1)
@@ -153,7 +299,7 @@ class App(tk.Tk):
                 on = bool(var.get())
                 try:
                     cvs.delete("all")
-                    cvs.create_rectangle(1, 1, 39, 21, fill="#c9a86a" if on else "#3a454e", outline="#c9a86a" if on else "#4a565f", width=1)
+                    draw_rr(cvs, 1, 1, 39, 21, 10, fill=("#c9a86a" if on else "#3a454e"), outline=("#c9a86a" if on else "#4a565f"), width=1, tags="tg")
                     x = 27 if on else 13
                     cvs.create_oval(x - 9, 3, x + 9, 19, fill="#f2ece1", outline="")
                 except Exception:
@@ -167,9 +313,9 @@ class App(tk.Tk):
             var._toggle_draw = draw
             return cvs
         def option(icon, text, sub, var, column):
-            box = tk.Frame(opts, bg=CARD2, highlightbackground=LINE, highlightthickness=1)
+            box = RoundedFrame(opts, radius=10, fill=CARD2, outline="#3a4750", parent_bg=CARD)
             box.grid(row=0, column=column, sticky="ew", padx=4)
-            top = tk.Frame(box, bg=CARD2)
+            top = tk.Frame(box.body, bg=CARD2)
             top.pack(fill="x", padx=10, pady=(8, 8))
             tk.Label(top, text=icon, bg=CARD2, fg="#c9a86a", font=("Segoe UI", 11)).pack(side="left", padx=(0, 7))
             tx = tk.Frame(top, bg=CARD2)
@@ -181,7 +327,7 @@ class App(tk.Tk):
             self.toggles[text] = var
         option("\U0001F5BC", "Albüm Kapağı Seç", "Kapak fotoğrafı seçimi yapılacak.", self.cover_var, 0)
         option("\U0001F5BC", "Tablo Fotoğrafı Seç", "Tablo fotoğrafı seçimi yapılacak.", self.table_var, 1)
-        tk.Button(inner, text="▶   Başla", command=self.start, bg="#cdb183", fg="#1a222a", activebackground="#e3c795", activeforeground="#1a222a", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 12, "bold"), pady=9).pack(fill="x", pady=(10, 0))
+        GoldButton(inner, "▶   Başla", self.start, SHELL, height=46, radius=11).pack(fill="x", pady=(10, 0))
         self._setup_win = cv.create_window((0, 0), window=shell, anchor="n", width=780)
         self._sync_optional_count_states()
         def _on_cfg(e=None):
@@ -196,6 +342,7 @@ class App(tk.Tk):
                 pass
         cv.bind("<Configure>", _on_cfg)
         self.after(30, self._setup_paint)
+        self.after(450, self._setup_paint)
 
     def _setup_paint(self):
         self._setup_job = None
@@ -207,7 +354,7 @@ class App(tk.Tk):
             h = cv.winfo_height()
             if w < 60 or h < 60:
                 return
-            cv.delete("bg", "hero", "foot")
+            cv.delete("bg", "hero", "foot", "round")
             src = getattr(self, "_bg_src", None)
             if src is not None:
                 s = max(w / src.width, h / src.height)
@@ -216,6 +363,7 @@ class App(tk.Tk):
                 left, top = (nw - w) // 2, (nh - h) // 2
                 img = img.crop((left, top, left + w, top + h))
                 self._bg_ref = ImageTk.PhotoImage(img)
+                self._bg_pil = img
                 cv.create_image(0, 0, image=self._bg_ref, anchor="nw", tags="bg")
             cx = w // 2
             ix, iy = cx, 46
@@ -235,6 +383,17 @@ class App(tk.Tk):
             cv.create_rectangle(0, h - 32, w, h, fill="#0c1217", outline="", tags="foot")
             cv.create_text(14, h - 16, text="ⓘ  FotoSecim v1.3   |   Düğün Fotoğraf Seçim Uygulaması", anchor="w", fill="#6f7980", font=("Segoe UI", 8), tags="foot")
             cv.create_text(w - 14, h - 16, text="♡  Fotoğraf, en güzel hikayedir...", anchor="e", fill="#6f7980", font=("Segoe UI", 8), tags="foot")
+            try:
+                self._setup_shell.update_idletasks()
+                sw = self._setup_shell.winfo_width()
+                sh = self._setup_shell.winfo_height()
+                x0 = cx - sw // 2
+                y0 = 204
+                self._corner_refs = rounded_photo_corners(cv, getattr(self, "_bg_pil", None), x0, y0, sw, sh, 16, "round")
+                draw_rr(cv, x0, y0, x0 + sw, y0 + sh, 16, fill=None, outline="#3d4a55", width=2, tags="round")
+                cv.tag_raise("round")
+            except Exception:
+                pass
             try:
                 cv.tag_lower("bg")
             except Exception:
