@@ -218,18 +218,18 @@ class App(tk.Tk):
                 self._bg_ref = ImageTk.PhotoImage(img)
                 cv.create_image(0, 0, image=self._bg_ref, anchor="nw", tags="bg")
             cx = w // 2
-            ix, iy = cx, 52
+            ix, iy = cx, 46
             cv.create_rectangle(ix - 28, iy - 12, ix + 28, iy + 20, outline=GOLD2, width=3, tags="hero")
             cv.create_oval(ix - 12, iy - 6, ix + 12, iy + 18, outline=GOLD2, width=3, tags="hero")
             cv.create_rectangle(ix - 13, iy - 20, ix + 5, iy - 12, outline=GOLD2, width=3, tags="hero")
             cv.create_oval(ix + 18, iy - 6, ix + 24, iy + 0, fill=GOLD2, outline="", tags="hero")
-            cv.create_text(cx, 102, text="Foto", anchor="e", fill="#f2ece1", font=("Segoe UI", 29, "bold"), tags="hero")
-            cv.create_text(cx, 102, text="Secim", anchor="w", fill=GOLD2, font=("Segoe UI", 29, "bold"), tags="hero")
-            cv.create_text(cx, 136, text="Düğün Fotoğraflarınız İçin Hızlı ve Kolay Seçim", fill="#e6e9eb", font=("Segoe UI", 12), tags="hero")
-            cv.create_text(cx, 160, text="Müşterilerinizin fotoğraf seçimlerini kolaylaştırın.", fill="#9aa4ab", font=("Segoe UI", 9), tags="hero")
-            cv.create_text(cx, 175, text="Siz sadece en güzel anlara odaklanın.", fill="#9aa4ab", font=("Segoe UI", 9), tags="hero")
+            cv.create_text(cx, 98, text="Foto", anchor="e", fill="#f2ece1", font=("Segoe UI", 28, "bold"), tags="hero")
+            cv.create_text(cx, 98, text="Secim", anchor="w", fill=GOLD2, font=("Segoe UI", 28, "bold"), tags="hero")
+            cv.create_text(cx, 138, text="Düğün Fotoğraflarınız İçin Hızlı ve Kolay Seçim", fill="#e6e9eb", font=("Segoe UI", 11), tags="hero")
+            cv.create_text(cx, 164, text="Müşterilerinizin fotoğraf seçimlerini kolaylaştırın.", fill="#9aa4ab", font=("Segoe UI", 9), tags="hero")
+            cv.create_text(cx, 182, text="Siz sadece en güzel anlara odaklanın.", fill="#9aa4ab", font=("Segoe UI", 9), tags="hero")
             try:
-                cv.coords(self._setup_win, cx, 196)
+                cv.coords(self._setup_win, cx, 204)
             except Exception:
                 pass
             cv.create_rectangle(0, h - 32, w, h, fill="#0c1217", outline="", tags="foot")
