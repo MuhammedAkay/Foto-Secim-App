@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """FotoSecim - Windows düğün fotoğrafı seçim uygulaması."""
 import os
+import sys
 import shutil
 from pathlib import Path
 import tkinter as tk
@@ -42,7 +43,7 @@ class PhotoCard(tk.Frame):
 
 class App(tk.Tk):
     def __init__(self):
-        super().__init__(); self.title("FotoSecim • Düğün Fotoğraf Seçim Uygulaması"); self.geometry("1320x820"); self.minsize(1050,680); self.configure(bg=BG)
+        super().__init__(); self.title("FotoSecim • Düğün Fotoğraf Seçim Uygulaması"); self.geometry("1280x800"); self.minsize(1080,700); self.configure(bg=BG)
         self.folder=None; self.photos=[]; self.cards={}; self.selected=set(); self.normal_selection=set(); self.cover=None; self.table=None; self.mode="normal"; self.normal_count=50; self.cover_required=True; self.table_required=True; self.output_dir=None
         self.folder_var=tk.StringVar(value="Klasör seçin..."); self.output_name_var=tk.StringVar(value=""); self.count_var=tk.IntVar(value=50); self.cover_var=tk.BooleanVar(value=True); self.table_var=tk.BooleanVar(value=True); self.cover_count_var=tk.IntVar(value=1); self.table_count_var=tk.IntVar(value=1)
         self._build_setup(); self.bind("<Escape>",lambda e:self.go_setup())
@@ -60,91 +61,186 @@ class App(tk.Tk):
         bar=tk.Frame(parent,bg="#0f151a",height=48); bar.pack(fill="x"); bar.pack_propagate(False)
         tk.Label(bar,text="📷  FotoSecim",bg="#0f151a",fg="#f0e0c4",font=("Segoe UI",14,"bold")).pack(side="left",padx=22)
         tk.Label(bar,text="Düğün Fotoğraf Seçim Uygulaması",bg="#0f151a",fg="#7f8990",font=("Segoe UI",9)).pack(side="left")
+    def _resource(self, *parts):
+        base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) if "__file__" in globals() else Path.cwd()
+        return base.joinpath(*parts)
+
     def _build_setup(self):
         self.clear()
-        CARD="#1b242e"; CARD2="#232f39"; SHELL="#131b21"; FIELD="#232f39"
-        root=tk.Frame(self,bg=BG); root.pack(fill="both",expand=True)
-        self._topbar(root)
-        content=tk.Frame(root,bg=BG); content.pack(fill="both",expand=True)
-        wrap=tk.Frame(content,bg=BG); wrap.pack(expand=True,fill="both",padx=20,pady=(14,8))
-        center=tk.Frame(wrap,bg=BG,width=800); center.pack(expand=True,anchor="center"); center.pack_propagate(True)
-        hero=tk.Frame(center,bg=BG); hero.pack(fill="x",pady=(0,14))
-        tk.Label(hero,text="\u25cb \U0001F4F7 \u25cb",bg=BG,fg=GOLD2,font=("Segoe UI",26)).pack()
-        title=tk.Frame(hero,bg=BG); title.pack()
-        tk.Label(title,text="Foto",bg=BG,fg="#f2ece1",font=("Segoe UI",28,"bold")).pack(side="left")
-        tk.Label(title,text="Secim",bg=BG,fg=GOLD2,font=("Segoe UI",28,"bold")).pack(side="left")
-        tk.Label(hero,text="D\u00fc\u011f\u00fcn Foto\u011fraflar\u0131n\u0131z \u0130\u00e7in H\u0131zl\u0131 ve Kolay Se\u00e7im",bg=BG,fg="#e1e4e6",font=("Segoe UI",12)).pack(pady=(2,0))
-        tk.Label(hero,text="M\u00fc\u015fterilerinizin foto\u011fraf se\u00e7imlerini kolayla\u015ft\u0131r\u0131n.\nSiz sadece en g\u00fczel anlara odaklan\u0131n.",bg=BG,fg=MUTED,font=("Segoe UI",9),justify="center").pack(pady=(8,0))
-        shell=tk.Frame(center,bg=SHELL,highlightbackground="#2b3840",highlightthickness=1); shell.pack(fill="x",expand=False,padx=40)
-        inner=tk.Frame(shell,bg=SHELL); inner.pack(fill="both",expand=True,padx=18,pady=16)
-        upper=tk.Frame(inner,bg=SHELL); upper.pack(fill="x"); upper.grid_columnconfigure(0,weight=1); upper.grid_columnconfigure(1,weight=1)
-        info=tk.Frame(upper,bg=CARD,highlightbackground=LINE,highlightthickness=1); info.grid(row=0,column=0,sticky="nsew",padx=(0,6))
-        tk.Label(info,text="\U0001F4C1  Alb\u00fcm Bilgileri",bg=CARD,fg="#ead1a2",font=("Segoe UI",11,"bold")).pack(anchor="w",padx=14,pady=(12,1))
-        tk.Label(info,text="Foto\u011fraflar\u0131n bulundu\u011fu klas\u00f6r\u00fc ve alb\u00fcm ad\u0131n\u0131 belirleyin.",bg=CARD,fg=MUTED,font=("Segoe UI",8)).pack(anchor="w",padx=14,pady=(0,10))
-        tk.Label(info,text="Alb\u00fcm Klas\u00f6r\u00fc",bg=CARD,fg="#d7dce0",font=("Segoe UI",9,"bold")).pack(anchor="w",padx=14)
-        fr=tk.Frame(info,bg=CARD); fr.pack(fill="x",padx=14,pady=(4,10))
-        folder_entry=tk.Entry(fr,textvariable=self.folder_var,state="readonly",bg=FIELD,fg="#aeb7bd",readonlybackground=FIELD,relief="flat",font=("Segoe UI",9)); folder_entry.pack(side="left",fill="x",expand=True,ipady=7,padx=(0,6))
-        tk.Button(fr,text="\U0001F4C1",command=self.choose_folder,bg=GOLD,fg="#11161a",activebackground=GOLD2,relief="flat",bd=0,cursor="hand2",font=("Segoe UI",10,"bold"),padx=10,pady=4).pack(side="right")
-        tk.Label(info,text="Alb\u00fcm Ad\u0131 (Klas\u00f6r Ad\u0131)",bg=CARD,fg="#d7dce0",font=("Segoe UI",9,"bold")).pack(anchor="w",padx=14)
-        self.album_entry=tk.Entry(info,textvariable=self.output_name_var,bg=FIELD,fg=TEXT,insertbackground=TEXT,relief="flat",bd=0,font=("Segoe UI",9)); self.album_entry.pack(fill="x",padx=14,pady=(4,14),ipady=7)
-        self._album_placeholder="\u00d6rn: Ay\u015fe & Mehmet"
+        CARD="#1d2630"; CARD2="#232f39"; SHELL="#141c22"; FIELD="#242f39"
+        try:
+            from PIL import Image as _PILImage
+            self._bg_src = _PILImage.open(str(self._resource("assets", "bg_setup.jpg"))).convert("RGB")
+        except Exception:
+            self._bg_src = None
+        self._bg_ref = None
+        self._setup_job = None
+        root = tk.Frame(self, bg=BG)
+        root.pack(fill="both", expand=True)
+        cv = tk.Canvas(root, bg=BG, highlightthickness=0)
+        cv.pack(fill="both", expand=True)
+        self.setup_canvas = cv
+        shell = tk.Frame(cv, bg=SHELL, highlightbackground="#2b3840", highlightthickness=1)
+        self._setup_shell = shell
+        inner = tk.Frame(shell, bg=SHELL)
+        inner.pack(fill="both", expand=True, padx=16, pady=12)
+        upper = tk.Frame(inner, bg=SHELL)
+        upper.pack(fill="x")
+        upper.grid_columnconfigure(0, weight=1)
+        upper.grid_columnconfigure(1, weight=1)
+        info = tk.Frame(upper, bg=CARD, highlightbackground=LINE, highlightthickness=1)
+        info.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        tk.Label(info, text="\U0001F4C1  Albüm Bilgileri", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
+        tk.Label(info, text="Fotoğrafların bulunduğu klasörü ve albüm adını belirleyin.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 8))
+        tk.Label(info, text="Albüm Klasörü", bg=CARD, fg="#d7dce0", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=14)
+        fr = tk.Frame(info, bg=CARD)
+        fr.pack(fill="x", padx=14, pady=(4, 8))
+        tk.Entry(fr, textvariable=self.folder_var, state="readonly", bg=FIELD, fg="#aeb7bd", readonlybackground=FIELD, relief="flat", font=("Segoe UI", 9)).pack(side="left", fill="x", expand=True, ipady=7, padx=(0, 6))
+        tk.Button(fr, text="\U0001F4C1", command=self.choose_folder, bg=GOLD, fg="#11161a", activebackground=GOLD2, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=10, pady=4).pack(side="right")
+        tk.Label(info, text="Albüm Adı (Klasör Adı)", bg=CARD, fg="#d7dce0", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=14)
+        self.album_entry = tk.Entry(info, textvariable=self.output_name_var, bg=FIELD, fg=TEXT, insertbackground=TEXT, relief="flat", bd=0, font=("Segoe UI", 9))
+        self.album_entry.pack(fill="x", padx=14, pady=(4, 12), ipady=7)
+        self._album_placeholder = "Örn: Ayşe & Mehmet"
         def _album_focus_in(e=None):
-            if self.output_name_var.get()==self._album_placeholder: self.output_name_var.set(""); self.album_entry.configure(fg=TEXT)
+            if self.output_name_var.get() == self._album_placeholder:
+                self.output_name_var.set("")
+                self.album_entry.configure(fg=TEXT)
         def _album_focus_out(e=None):
-            if not self.output_name_var.get().strip(): self.output_name_var.set(self._album_placeholder); self.album_entry.configure(fg="#7d888f")
-        if not self.output_name_var.get().strip(): self.output_name_var.set(self._album_placeholder); self.album_entry.configure(fg="#7d888f")
-        self.album_entry.bind("<FocusIn>",_album_focus_in); self.album_entry.bind("<FocusOut>",_album_focus_out)
-        counts=tk.Frame(upper,bg=CARD,highlightbackground=LINE,highlightthickness=1); counts.grid(row=0,column=1,sticky="nsew",padx=(6,0))
-        tk.Label(counts,text="\U0001F5BC  Se\u00e7im Say\u0131lar\u0131",bg=CARD,fg="#ead1a2",font=("Segoe UI",11,"bold")).pack(anchor="w",padx=14,pady=(12,1))
-        tk.Label(counts,text="Se\u00e7ilmesi gereken foto\u011fraf adetlerini belirleyin.",bg=CARD,fg=MUTED,font=("Segoe UI",8)).pack(anchor="w",padx=14,pady=(0,8))
-        self.count_spins={}; self.count_badges={}; self.count_labels={}
-        def count_row(icon,label,var,enabled_var=None,fixed=False):
-            row=tk.Frame(counts,bg=CARD); row.pack(fill="x",padx=14,pady=5)
-            ic=tk.Label(row,text=icon,bg=CARD,fg="#b7c0c6",font=("Segoe UI",11)); ic.pack(side="left",padx=(0,8))
-            lb=tk.Label(row,text=label,bg=CARD,fg="#d7dce0",font=("Segoe UI",10)); lb.pack(side="left")
-            badge=tk.Label(row,text="(Zorunlu)",bg=CARD,fg="#7d888f",font=("Segoe UI",8)); badge.pack(side="right",padx=(6,0))
-            spin=tk.Spinbox(row,from_=1,to=99,textvariable=var,width=5,bg=FIELD,fg="#f0f2f4",buttonbackground="#2b3840",relief="flat",font=("Segoe UI",10,"bold"),justify="center",disabledbackground="#10171c",disabledforeground="#59636a",state="normal" if (enabled_var is None or enabled_var.get()) else "disabled")
-            spin.pack(side="right",ipady=4)
-            self.count_spins[label]=spin; self.count_badges[label]=badge; self.count_labels[label]=(lb,ic,row)
-        count_row("\U0001F5BC","Normal Foto\u011fraf Say\u0131s\u0131",self.count_var)
-        count_row("\U0001F5BC","Alb\u00fcm Kapa\u011f\u0131",self.cover_count_var,self.cover_var)
-        count_row("\U0001F5BC","Tablo Foto\u011fraf\u0131",self.table_count_var,self.table_var)
-        extra=tk.Frame(inner,bg=CARD,highlightbackground=LINE,highlightthickness=1); extra.pack(fill="x",pady=(12,0))
-        tk.Label(extra,text="\u2699  Ekstra Se\u00e7enekler",bg=CARD,fg="#ead1a2",font=("Segoe UI",11,"bold")).pack(anchor="w",padx=14,pady=(12,1))
-        tk.Label(extra,text="\u0130htiyac\u0131n\u0131za g\u00f6re ek se\u00e7imleri aktif edebilirsiniz.",bg=CARD,fg=MUTED,font=("Segoe UI",8)).pack(anchor="w",padx=14,pady=(0,8))
-        opts=tk.Frame(extra,bg=CARD); opts.pack(fill="x",padx=14,pady=(0,12)); opts.grid_columnconfigure(0,weight=1); opts.grid_columnconfigure(1,weight=1)
-        self.toggles={}
-        def make_toggle(parent,var):
-            cv=tk.Canvas(parent,width=40,height=22,bg=CARD2,highlightthickness=0,bd=0,cursor="hand2")
+            if not self.output_name_var.get().strip():
+                self.output_name_var.set(self._album_placeholder)
+                self.album_entry.configure(fg="#7d888f")
+        if not self.output_name_var.get().strip():
+            self.output_name_var.set(self._album_placeholder)
+            self.album_entry.configure(fg="#7d888f")
+        self.album_entry.bind("<FocusIn>", _album_focus_in)
+        self.album_entry.bind("<FocusOut>", _album_focus_out)
+        counts = tk.Frame(upper, bg=CARD, highlightbackground=LINE, highlightthickness=1)
+        counts.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        tk.Label(counts, text="\U0001F5BC  Seçim Sayıları", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
+        tk.Label(counts, text="Seçilmesi gereken fotoğraf adetlerini belirleyin.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 6))
+        self.count_spins = {}
+        self.count_badges = {}
+        self.count_labels = {}
+        def count_row(icon, label, var, enabled_var=None):
+            row = tk.Frame(counts, bg=CARD)
+            row.pack(fill="x", padx=14, pady=5)
+            ic = tk.Label(row, text=icon, bg=CARD, fg="#b7c0c6", font=("Segoe UI", 11))
+            ic.pack(side="left", padx=(0, 8))
+            lb = tk.Label(row, text=label, bg=CARD, fg="#d7dce0", font=("Segoe UI", 10))
+            lb.pack(side="left")
+            badge = tk.Label(row, text="(Zorunlu)", bg=CARD, fg="#7d888f", font=("Segoe UI", 8))
+            badge.pack(side="right", padx=(6, 0))
+            spin = tk.Spinbox(row, from_=1, to=99, textvariable=var, width=5, bg=FIELD, fg="#f0f2f4", buttonbackground="#2b3840", relief="flat", font=("Segoe UI", 10, "bold"), justify="center", disabledbackground="#10171c", disabledforeground="#59636a", state="normal" if (enabled_var is None or enabled_var.get()) else "disabled")
+            spin.pack(side="right", ipady=4)
+            self.count_spins[label] = spin
+            self.count_badges[label] = badge
+            self.count_labels[label] = (lb, ic, row)
+        count_row("\U0001F5BC", "Normal Fotoğraf Sayısı", self.count_var)
+        count_row("\U0001F5BC", "Albüm Kapağı", self.cover_count_var, self.cover_var)
+        count_row("\U0001F5BC", "Tablo Fotoğrafı", self.table_count_var, self.table_var)
+        extra = tk.Frame(inner, bg=CARD, highlightbackground=LINE, highlightthickness=1)
+        extra.pack(fill="x", pady=(10, 0))
+        tk.Label(extra, text="⚙  Ekstra Seçenekler", bg=CARD, fg="#ead1a2", font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=14, pady=(10, 1))
+        tk.Label(extra, text="İhtiyacınıza göre ek seçimleri aktif edebilirsiniz.", bg=CARD, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=14, pady=(0, 6))
+        opts = tk.Frame(extra, bg=CARD)
+        opts.pack(fill="x", padx=14, pady=(0, 10))
+        opts.grid_columnconfigure(0, weight=1)
+        opts.grid_columnconfigure(1, weight=1)
+        self.toggles = {}
+        def make_toggle(parent, var):
+            cvs = tk.Canvas(parent, width=40, height=22, bg=CARD2, highlightthickness=0, bd=0, cursor="hand2")
             def draw():
-                on=bool(var.get())
-                cv.delete("all")
-                cv.create_rectangle(1,1,39,21,fill="#c9a86a" if on else "#3a454e",outline="#c9a86a" if on else "#4a565f",width=1)
-                x=27 if on else 13
-                cv.create_oval(x-9,3,x+9,19,fill="#f2ece1",outline="")
+                on = bool(var.get())
+                try:
+                    cvs.delete("all")
+                    cvs.create_rectangle(1, 1, 39, 21, fill="#c9a86a" if on else "#3a454e", outline="#c9a86a" if on else "#4a565f", width=1)
+                    x = 27 if on else 13
+                    cvs.create_oval(x - 9, 3, x + 9, 19, fill="#f2ece1", outline="")
+                except Exception:
+                    pass
             draw()
             def flip(e=None):
-                var.set(not var.get()); draw(); self._sync_optional_count_states()
-            cv.bind("<Button-1>",flip)
-            var._toggle_draw=draw
-            return cv
-        def option(icon,text,sub,var,column):
-            box=tk.Frame(opts,bg=CARD2,highlightbackground=LINE,highlightthickness=1); box.grid(row=0,column=column,sticky="ew",padx=4)
-            top=tk.Frame(box,bg=CARD2); top.pack(fill="x",padx=10,pady=(10,0))
-            tk.Label(top,text=icon,bg=CARD2,fg="#c9a86a",font=("Segoe UI",11)).pack(side="left",padx=(0,7))
-            tx=tk.Frame(top,bg=CARD2); tx.pack(side="left",fill="x",expand=True)
-            tk.Label(tx,text=text,bg=CARD2,fg=TEXT,font=("Segoe UI",10,"bold")).pack(anchor="w")
-            tk.Label(tx,text=sub,bg=CARD2,fg="#8b959c",font=("Segoe UI",8)).pack(anchor="w")
-            sw=make_toggle(top,var); sw.pack(side="right",padx=(8,0))
-            self.toggles[text]=var
-            box.bind("<Button-1>",lambda e: (var.set(not var.get()), self._sync_optional_count_states()))
-        option("\U0001F5BC","Alb\u00fcm Kapa\u011f\u0131 Se\u00e7","Kapak foto\u011fraf\u0131 se\u00e7imi yap\u0131lacak.",self.cover_var,0)
-        option("\U0001F5BC","Tablo Foto\u011fraf\u0131 Se\u00e7","Tablo foto\u011fraf\u0131 se\u00e7imi yap\u0131lacak.",self.table_var,1)
+                var.set(not var.get())
+                draw()
+                self._sync_optional_count_states()
+            cvs.bind("<Button-1>", flip)
+            var._toggle_draw = draw
+            return cvs
+        def option(icon, text, sub, var, column):
+            box = tk.Frame(opts, bg=CARD2, highlightbackground=LINE, highlightthickness=1)
+            box.grid(row=0, column=column, sticky="ew", padx=4)
+            top = tk.Frame(box, bg=CARD2)
+            top.pack(fill="x", padx=10, pady=(8, 8))
+            tk.Label(top, text=icon, bg=CARD2, fg="#c9a86a", font=("Segoe UI", 11)).pack(side="left", padx=(0, 7))
+            tx = tk.Frame(top, bg=CARD2)
+            tx.pack(side="left", fill="x", expand=True)
+            tk.Label(tx, text=text, bg=CARD2, fg=TEXT, font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            tk.Label(tx, text=sub, bg=CARD2, fg="#8b959c", font=("Segoe UI", 8)).pack(anchor="w")
+            sw = make_toggle(top, var)
+            sw.pack(side="right", padx=(8, 0))
+            self.toggles[text] = var
+        option("\U0001F5BC", "Albüm Kapağı Seç", "Kapak fotoğrafı seçimi yapılacak.", self.cover_var, 0)
+        option("\U0001F5BC", "Tablo Fotoğrafı Seç", "Tablo fotoğrafı seçimi yapılacak.", self.table_var, 1)
+        tk.Button(inner, text="▶   Başla", command=self.start, bg="#cdb183", fg="#1a222a", activebackground="#e3c795", activeforeground="#1a222a", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 12, "bold"), pady=9).pack(fill="x", pady=(10, 0))
+        self._setup_win = cv.create_window((0, 0), window=shell, anchor="n", width=780)
         self._sync_optional_count_states()
-        tk.Button(inner,text="\u25b6   Ba\u015fla",command=self.start,bg="#cdb183",fg="#1a222a",activebackground="#e3c795",activeforeground="#1a222a",relief="flat",bd=0,cursor="hand2",font=("Segoe UI",12,"bold"),pady=10).pack(fill="x",pady=(12,0))
-        footer=tk.Frame(root,bg="#0f151a",height=34); footer.pack(fill="x",side="bottom"); footer.pack_propagate(False)
-        tk.Label(footer,text="  \u24d8  FotoSecim v1.3   |   D\u00fc\u011f\u00fcn Foto\u011fraf Se\u00e7im Uygulamas\u0131",bg="#0f151a",fg="#6f7980",font=("Segoe UI",8)).pack(side="left")
-        tk.Label(footer,text="\u2661  Foto\u011fraf, en g\u00fczel hikayedir...  ",bg="#0f151a",fg="#6f7980",font=("Segoe UI",8)).pack(side="right")
+        def _on_cfg(e=None):
+            try:
+                if self._setup_job is not None:
+                    self.after_cancel(self._setup_job)
+            except Exception:
+                pass
+            try:
+                self._setup_job = self.after(120, self._setup_paint)
+            except Exception:
+                pass
+        cv.bind("<Configure>", _on_cfg)
+        self.after(30, self._setup_paint)
+
+    def _setup_paint(self):
+        self._setup_job = None
+        cv = getattr(self, "setup_canvas", None)
+        try:
+            if cv is None or not cv.winfo_exists():
+                return
+            w = cv.winfo_width()
+            h = cv.winfo_height()
+            if w < 60 or h < 60:
+                return
+            cv.delete("bg", "hero", "foot")
+            src = getattr(self, "_bg_src", None)
+            if src is not None:
+                s = max(w / src.width, h / src.height)
+                nw, nh = max(1, int(src.width * s)), max(1, int(src.height * s))
+                img = src.resize((nw, nh), Image.Resampling.BILINEAR)
+                left, top = (nw - w) // 2, (nh - h) // 2
+                img = img.crop((left, top, left + w, top + h))
+                self._bg_ref = ImageTk.PhotoImage(img)
+                cv.create_image(0, 0, image=self._bg_ref, anchor="nw", tags="bg")
+            cx = w // 2
+            ix, iy = cx, 52
+            cv.create_rectangle(ix - 28, iy - 12, ix + 28, iy + 20, outline=GOLD2, width=3, tags="hero")
+            cv.create_oval(ix - 12, iy - 6, ix + 12, iy + 18, outline=GOLD2, width=3, tags="hero")
+            cv.create_rectangle(ix - 13, iy - 20, ix + 5, iy - 12, outline=GOLD2, width=3, tags="hero")
+            cv.create_oval(ix + 18, iy - 6, ix + 24, iy + 0, fill=GOLD2, outline="", tags="hero")
+            cv.create_text(cx, 102, text="Foto", anchor="e", fill="#f2ece1", font=("Segoe UI", 29, "bold"), tags="hero")
+            cv.create_text(cx, 102, text="Secim", anchor="w", fill=GOLD2, font=("Segoe UI", 29, "bold"), tags="hero")
+            cv.create_text(cx, 136, text="Düğün Fotoğraflarınız İçin Hızlı ve Kolay Seçim", fill="#e6e9eb", font=("Segoe UI", 12), tags="hero")
+            cv.create_text(cx, 160, text="Müşterilerinizin fotoğraf seçimlerini kolaylaştırın.", fill="#9aa4ab", font=("Segoe UI", 9), tags="hero")
+            cv.create_text(cx, 175, text="Siz sadece en güzel anlara odaklanın.", fill="#9aa4ab", font=("Segoe UI", 9), tags="hero")
+            try:
+                cv.coords(self._setup_win, cx, 196)
+            except Exception:
+                pass
+            cv.create_rectangle(0, h - 32, w, h, fill="#0c1217", outline="", tags="foot")
+            cv.create_text(14, h - 16, text="ⓘ  FotoSecim v1.3   |   Düğün Fotoğraf Seçim Uygulaması", anchor="w", fill="#6f7980", font=("Segoe UI", 8), tags="foot")
+            cv.create_text(w - 14, h - 16, text="♡  Fotoğraf, en güzel hikayedir...", anchor="e", fill="#6f7980", font=("Segoe UI", 8), tags="foot")
+            try:
+                cv.tag_lower("bg")
+            except Exception:
+                pass
+        except Exception:
+            return
 
     def _sync_optional_count_states(self):
         if not hasattr(self,"count_spins"): return
