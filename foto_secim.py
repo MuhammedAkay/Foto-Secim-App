@@ -44,7 +44,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__(); self.title("FotoSecim • Düğün Fotoğraf Seçim Uygulaması"); self.geometry("1320x820"); self.minsize(1050,680); self.configure(bg=BG)
         self.folder=None; self.photos=[]; self.cards={}; self.selected=set(); self.normal_selection=set(); self.cover=None; self.table=None; self.mode="normal"; self.normal_count=50; self.cover_required=True; self.table_required=True; self.output_dir=None
-        self.folder_var=tk.StringVar(value="Klasör seçilmedi"); self.output_name_var=tk.StringVar(value="Albüm"); self.count_var=tk.IntVar(value=50); self.cover_var=tk.BooleanVar(value=True); self.table_var=tk.BooleanVar(value=True)
+        self.folder_var=tk.StringVar(value="Klasör seçilmedi"); self.output_name_var=tk.StringVar(value="Albüm"); self.count_var=tk.IntVar(value=50); self.cover_var=tk.BooleanVar(value=True); self.table_var=tk.BooleanVar(value=True); self.cover_count_var=tk.IntVar(value=1); self.table_count_var=tk.IntVar(value=1)
         self._build_setup(); self.bind("<Escape>",lambda e:self.go_setup())
     def clear(self):
         for w in self.winfo_children(): w.destroy()
@@ -61,23 +61,61 @@ class App(tk.Tk):
         tk.Label(bar,text="📷  FotoSecim",bg="#0f151a",fg="#f0e0c4",font=("Segoe UI",14,"bold")).pack(side="left",padx=22)
         tk.Label(bar,text="Düğün Fotoğraf Seçim Uygulaması",bg="#0f151a",fg="#7f8990",font=("Segoe UI",9)).pack(side="left")
     def _build_setup(self):
-        self.clear(); root=tk.Frame(self,bg=BG); root.pack(fill="both",expand=True); self._topbar(root)
-        content=tk.Frame(root,bg=BG); content.pack(fill="both",expand=True,padx=34,pady=24)
-        tk.Label(content,text="FotoSecim",bg=BG,fg="#f1e8dc",font=("Segoe UI",30,"bold")).pack(); tk.Label(content,text="Düğün fotoğraflarınızı hızlı ve kolay şekilde seçin",bg=BG,fg="#c1c7cc",font=("Segoe UI",12)).pack(pady=(2,4)); tk.Label(content,text="Müşteriniz seçsin, siz sadece en güzel anları albüme taşıyın.",bg=BG,fg=MUTED,font=("Segoe UI",9)).pack(pady=(0,20))
-        cards=tk.Frame(content,bg=BG); cards.pack(fill="x",padx=25); cards.columnconfigure(0,weight=1); cards.columnconfigure(1,weight=1)
-        ac,ab=self.card(cards,"▣  Albüm Bilgileri","Fotoğrafların bulunduğu klasörü ve albüm adını belirleyin."); ac.grid(row=0,column=0,sticky="nsew",padx=(0,6))
-        sc,sb=self.card(cards,"▧  Seçim Sayıları","Müşterinin seçmesi gereken fotoğraf adetleri."); sc.grid(row=0,column=1,sticky="nsew",padx=(6,0))
-        tk.Label(ab,text="Albüm Klasörü",bg=PANEL,fg="#d7dce0",font=("Segoe UI",9,"bold")).pack(anchor="w"); fr=tk.Frame(ab,bg=PANEL); fr.pack(fill="x",pady=(5,13)); tk.Entry(fr,textvariable=self.folder_var,state="readonly",bg=PANEL2,fg="#aeb7bd",readonlybackground=PANEL2,relief="flat",font=("Segoe UI",10)).pack(side="left",fill="x",expand=True,ipady=9,padx=(0,7)); self.dark_button(fr,"📁  Seç",self.choose_folder).pack(side="right")
-        tk.Label(ab,text="Albüm Adı (klasör adı)",bg=PANEL,fg="#d7dce0",font=("Segoe UI",9,"bold")).pack(anchor="w"); tk.Entry(ab,textvariable=self.output_name_var,bg=PANEL2,fg=TEXT,insertbackground=TEXT,relief="flat",bd=0,font=("Segoe UI",10)).pack(fill="x",pady=(5,0),ipady=9)
-        def spin(label,var):
-            r=tk.Frame(sb,bg=PANEL); r.pack(fill="x",pady=5); tk.Label(r,text=label,bg=PANEL,fg="#d7dce0",font=("Segoe UI",10)).pack(side="left"); tk.Label(r,text="(Zorunlu)",bg=PANEL,fg="#7f8990",font=("Segoe UI",9)).pack(side="right",padx=9); tk.Spinbox(r,from_=1,to=9999,textvariable=var,width=7,bg=PANEL2,fg="#f0f2f4",buttonbackground="#29343c",relief="flat",font=("Segoe UI",10),justify="center").pack(side="right",ipady=6)
-        spin("Normal Fotoğraf Sayısı",self.count_var); spin("Albüm Kapağı",tk.IntVar(value=1)); spin("Tablo Fotoğrafı",tk.IntVar(value=1))
-        extras=tk.Frame(content,bg=BG); extras.pack(fill="x",padx=25,pady=12); extras.columnconfigure(0,weight=1); extras.columnconfigure(1,weight=1); ec,eb=self.card(extras,"⚙  Ekstra Seçenekler","İhtiyacınıza göre seçimleri açıp kapatabilirsiniz."); ec.grid(row=0,column=0,sticky="nsew",padx=(0,6)); vc,vb=self.card(extras,"◉  Görünüm","Seçim ekranı için varsayılan görünüm."); vc.grid(row=0,column=1,sticky="nsew",padx=(6,0))
-        for text,var,sub in [("Albüm Kapağı Seç",self.cover_var,"Kapak fotoğrafı seçimi yapılacak."),("Tablo Fotoğrafı Seç",self.table_var,"Tablo fotoğrafı seçimi yapılacak.")]:
-            row=tk.Frame(eb,bg=PANEL2,highlightbackground=LINE,highlightthickness=1); row.pack(fill="x",pady=4); tk.Checkbutton(row,text=text,variable=var,bg=PANEL2,fg=TEXT,activebackground=PANEL2,activeforeground="#fff",selectcolor=PANEL2,font=("Segoe UI",10,"bold")).pack(anchor="w",padx=10,pady=(7,0)); tk.Label(row,text=sub,bg=PANEL2,fg="#7f8990",font=("Segoe UI",8)).pack(anchor="w",padx=34,pady=(0,7))
-        tk.Label(vb,text="Koyu tema  •  Orta boy önizleme  •  Büyük ekran",bg=PANEL,fg="#d7dce0",font=("Segoe UI",9)).pack(anchor="w",pady=8)
-        self.gold_button(content,"▶   BAŞLA",self.start,big=True).pack(fill="x",padx=25,pady=(6,4))
-        tk.Label(root,text="FotoSecim v1.1   •   Düğün Fotoğraf Seçim Uygulaması                                      Fotoğraf, en güzel hikâyedir…",bg="#0f151a",fg="#6f7980",font=("Segoe UI",8),anchor="w").pack(fill="x",side="bottom",ipady=9,padx=22)
+        self.clear()
+        root=tk.Frame(self,bg=BG); root.pack(fill="both",expand=True)
+        self._topbar(root)
+        content=tk.Frame(root,bg=BG); content.pack(fill="both",expand=True,padx=44,pady=(26,18))
+        hero=tk.Frame(content,bg=BG); hero.pack(fill="x",pady=(0,20))
+        tk.Label(hero,text="▣",bg=BG,fg=GOLD2,font=("Segoe UI Symbol",34,"bold")).pack()
+        tk.Label(hero,text="FotoSecim",bg=BG,fg="#f1e8dc",font=("Segoe UI",31,"bold")).pack(pady=(0,2))
+        tk.Label(hero,text="Düğün Fotoğraflarınız İçin Hızlı ve Kolay Seçim",bg=BG,fg="#e1e4e6",font=("Segoe UI",13)).pack()
+        tk.Label(hero,text="Müşterilerinizin fotoğraf seçimlerini kolaylaştırın.\nSiz sadece en güzel anlara odaklanın.",bg=BG,fg=MUTED,font=("Segoe UI",9),justify="center").pack(pady=(9,0))
+        shell=tk.Frame(content,bg="#0f171d",highlightbackground="#2b3840",highlightthickness=1); shell.pack(fill="both",expand=True,padx=105)
+        upper=tk.Frame(shell,bg="#0f171d"); upper.pack(fill="x",padx=24,pady=(20,0)); upper.columnconfigure(0,weight=1); upper.columnconfigure(1,weight=1)
+        info=tk.Frame(upper,bg=PANEL,highlightbackground=LINE,highlightthickness=1); info.grid(row=0,column=0,sticky="nsew",padx=(0,6))
+        tk.Label(info,text="▣  Albüm Bilgileri",bg=PANEL,fg="#ead1a2",font=("Segoe UI",12,"bold")).pack(anchor="w",padx=18,pady=(14,2))
+        tk.Label(info,text="Fotoğrafların bulunduğu klasörü ve albüm adını belirleyin.",bg=PANEL,fg=MUTED,font=("Segoe UI",9)).pack(anchor="w",padx=18,pady=(0,14))
+        tk.Label(info,text="Albüm Klasörü",bg=PANEL,fg="#d7dce0",font=("Segoe UI",9,"bold")).pack(anchor="w",padx=18)
+        fr=tk.Frame(info,bg=PANEL); fr.pack(fill="x",padx=18,pady=(5,13))
+        tk.Entry(fr,textvariable=self.folder_var,state="readonly",bg=PANEL2,fg="#aeb7bd",readonlybackground=PANEL2,relief="flat",font=("Segoe UI",10)).pack(side="left",fill="x",expand=True,ipady=9,padx=(0,7))
+        self.dark_button(fr,"📁  Seç",self.choose_folder).pack(side="right")
+        tk.Label(info,text="Albüm Adı (Klasör Adı)",bg=PANEL,fg="#d7dce0",font=("Segoe UI",9,"bold")).pack(anchor="w",padx=18)
+        tk.Entry(info,textvariable=self.output_name_var,bg=PANEL2,fg=TEXT,insertbackground=TEXT,relief="flat",bd=0,font=("Segoe UI",10)).pack(fill="x",padx=18,pady=(5,18),ipady=9)
+        counts=tk.Frame(upper,bg=PANEL,highlightbackground=LINE,highlightthickness=1); counts.grid(row=0,column=1,sticky="nsew",padx=(6,0))
+        tk.Label(counts,text="▧  Seçim Sayıları",bg=PANEL,fg="#ead1a2",font=("Segoe UI",12,"bold")).pack(anchor="w",padx=18,pady=(14,2))
+        tk.Label(counts,text="Müşterinin seçmesi gereken fotoğraf adetlerini belirleyin.",bg=PANEL,fg=MUTED,font=("Segoe UI",9)).pack(anchor="w",padx=18,pady=(0,10))
+        self.count_spins={}
+        def count_row(label,var,enabled_var=None):
+            row=tk.Frame(counts,bg=PANEL); row.pack(fill="x",padx=18,pady=4)
+            tk.Label(row,text="▧",bg=PANEL,fg="#b7c0c6",font=("Segoe UI Symbol",12)).pack(side="left",padx=(0,9))
+            tk.Label(row,text=label,bg=PANEL,fg="#d7dce0",font=("Segoe UI",10)).pack(side="left")
+            spin=tk.Spinbox(row,from_=1,to=9999,textvariable=var,width=7,bg=PANEL2,fg="#f0f2f4",buttonbackground="#29343c",relief="flat",font=("Segoe UI",10),justify="center",disabledbackground="#10171c",disabledforeground="#59636a")
+            spin.pack(side="right",ipady=5); self.count_spins[label]=spin
+            if enabled_var is not None: enabled_var.trace_add("write",lambda *_: self._sync_optional_count_states())
+        count_row("Normal Fotoğraf Sayısı",self.count_var)
+        count_row("Albüm Kapağı",self.cover_count_var,self.cover_var)
+        count_row("Tablo Fotoğrafı",self.table_count_var,self.table_var)
+        extra=tk.Frame(shell,bg="#0f171d"); extra.pack(fill="x",padx=24,pady=(14,0))
+        ec=tk.Frame(extra,bg=PANEL,highlightbackground=LINE,highlightthickness=1); ec.pack(fill="x")
+        tk.Label(ec,text="⚙  Ekstra Seçenekler",bg=PANEL,fg="#ead1a2",font=("Segoe UI",12,"bold")).pack(anchor="w",padx=18,pady=(14,2))
+        tk.Label(ec,text="İhtiyacınıza göre ek fotoğraf seçimlerini aktif edebilirsiniz.",bg=PANEL,fg=MUTED,font=("Segoe UI",9)).pack(anchor="w",padx=18,pady=(0,10))
+        opts=tk.Frame(ec,bg=PANEL); opts.pack(fill="x",padx=18,pady=(0,15)); opts.grid_columnconfigure(0,weight=1); opts.grid_columnconfigure(1,weight=1)
+        def option(text,sub,var,column):
+            row=tk.Frame(opts,bg=PANEL2,highlightbackground=LINE,highlightthickness=1); row.grid(row=0,column=column,sticky="ew",padx=4)
+            tk.Checkbutton(row,text=text,variable=var,bg=PANEL2,fg=TEXT,activebackground=PANEL2,activeforeground="#fff",selectcolor=PANEL2,font=("Segoe UI",10,"bold"),command=self._sync_optional_count_states).pack(anchor="w",padx=10,pady=(8,0))
+            tk.Label(row,text=sub,bg=PANEL2,fg="#7f8990",font=("Segoe UI",8)).pack(anchor="w",padx=34,pady=(0,8))
+        option("▧  Albüm Kapağı Seç","Kapak fotoğrafı seçimi yapılacak.",self.cover_var,0)
+        option("▧  Tablo Fotoğrafı Seç","Tablo fotoğrafı seçimi yapılacak.",self.table_var,1)
+        self._sync_optional_count_states()
+        self.gold_button(shell,"▶   BAŞLA",self.start,big=True).pack(fill="x",padx=24,pady=(16,22))
+        tk.Label(root,text="FotoSecim v1.3   •   Düğün Fotoğraf Seçim Uygulaması",bg="#0f151a",fg="#6f7980",font=("Segoe UI",8),anchor="w").pack(fill="x",side="bottom",ipady=9,padx=22)
+
+    def _sync_optional_count_states(self):
+        if not hasattr(self,"count_spins"): return
+        for label,var in [("Albüm Kapağı",self.cover_var),("Tablo Fotoğrafı",self.table_var)]:
+            spin=self.count_spins.get(label)
+            if spin: spin.configure(state=("normal" if var.get() else "disabled"))
+
     def choose_folder(self):
         f=filedialog.askdirectory(title="Fotoğrafların bulunduğu klasörü seçin");
         if f: self.folder=Path(f); self.folder_var.set(str(self.folder))
@@ -87,7 +125,15 @@ class App(tk.Tk):
         except: messagebox.showwarning("Geçersiz sayı","Normal fotoğraf sayısını doğru girin."); return
         if count<1 or not self.output_name_var.get().strip(): messagebox.showwarning("Eksik bilgi","Fotoğraf sayısı ve albüm adı boş olamaz."); return
         photos=sorted([p for p in self.folder.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS],key=lambda p:p.name.lower())
-        needed=count+(1 if self.cover_var.get() else 0)+(1 if self.table_var.get() else 0)
+        try:
+            cover_count=int(self.cover_count_var.get()) if self.cover_var.get() else 0
+            table_count=int(self.table_count_var.get()) if self.table_var.get() else 0
+        except Exception:
+            messagebox.showwarning("Geçersiz sayı","Kapak ve tablo adetlerini doğru girin."); return
+        if cover_count not in (0,1) or table_count not in (0,1):
+            messagebox.showinfo("Tek fotoğraf","Bu sürümde albüm kapağı ve tablo seçimi birer fotoğraf olarak uygulanıyor. Adet alanlarının çoklu seçim desteğini sonraki adımda bağlayacağız.")
+            return
+        needed=count+cover_count+table_count
         if not photos: messagebox.showerror("Fotoğraf bulunamadı","Klasörde desteklenen fotoğraf bulunamadı."); return
         if len(photos)<needed: messagebox.showwarning("Fotoğraf sayısı yetersiz",f"Klasörde {len(photos)} fotoğraf var; en az {needed} fotoğraf gerekiyor."); return
         self.photos=photos; self.normal_count=count; self.cover_required=self.cover_var.get(); self.table_required=self.table_var.get(); self.output_dir=self.folder/self.output_name_var.get().strip(); self.selected.clear(); self.normal_selection.clear(); self.cover=None; self.table=None; self.mode="normal"; self._selection_page()
