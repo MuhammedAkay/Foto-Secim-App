@@ -13,17 +13,19 @@ except ImportError:
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
 
-# Görseldeki Birebir Renk Paleti
+# Referans gorsele birebir koyu tema paleti
 BG = "#0b1014"
-PANEL = "#151d24"
-PANEL2 = "#1c2630"
+OUTER = "#10161c"
+PANEL = "#161e26"
+PANEL2 = "#1b2530"
 LINE = "#2d3a45"
-GOLD = "#c8a97e"
-GOLD_HOVER = "#d8b98e"
-TEXT = "#edf0f2"
-MUTED = "#828e96"
-FIELD = "#222c35"
-BORDER = "#32404d"
+GOLD = "#d3b48c"
+GOLD_HOVER = "#e0c29a"
+GOLD_DIM = "#8a755a"
+TEXT = "#eef1f3"
+MUTED = "#8b959d"
+FIELD = "#1f2933"
+BORDER = "#2e3c47"
 THUMB = (178, 132)
 
 class PhotoCard(tk.Frame):
@@ -174,6 +176,7 @@ class App(tk.Tk):
             self._bg_src = None
 
         self._bg_ref = None
+        self._dim_ref = None
         self._setup_job = None
 
         root = tk.Frame(self, bg=BG)
@@ -183,41 +186,45 @@ class App(tk.Tk):
         cv.pack(fill="both", expand=True)
         self.setup_canvas = cv
 
-        shell = tk.Frame(cv, bg=BG, bd=0, highlightthickness=0)
+        shell = tk.Frame(cv, bg=OUTER, highlightbackground="#26333e", highlightthickness=1, bd=0)
         self._setup_shell = shell
 
-        inner = tk.Frame(shell, bg=BG)
-        inner.pack(fill="both", expand=True, padx=10, pady=10)
+        inner = tk.Frame(shell, bg=OUTER)
+        inner.pack(fill="both", expand=True, padx=14, pady=14)
 
-        # Üst İki Kart (Albüm Bilgileri ve Seçim Sayıları)
-        upper = tk.Frame(inner, bg=BG)
+        upper = tk.Frame(inner, bg=OUTER)
         upper.pack(fill="x")
         upper.grid_columnconfigure(0, weight=1)
         upper.grid_columnconfigure(1, weight=1)
 
-        # 1. Albüm Bilgileri
+        # 1. Album Bilgileri
         info = RoundedFrame(upper, radius=10, fill=PANEL, outline=BORDER)
         info.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
         ibody = info.body
 
-        tk.Label(ibody, text="📁   Albüm Bilgileri", bg=PANEL, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=16, pady=(14, 10))
-        
-        tk.Label(ibody, text="Albüm Klasörü", bg=PANEL, fg="#a0acb5", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=16, pady=(0, 4))
-        fr = tk.Frame(ibody, bg=PANEL)
-        fr.pack(fill="x", padx=16, pady=(0, 10))
-        fbox = RoundedFrame(fr, radius=6, fill=FIELD, outline=BORDER)
-        fbox.pack(side="left", fill="x", expand=True, padx=(0, 6))
-        folder_entry = tk.Entry(fbox.body, textvariable=self.folder_var, state="readonly", bg=FIELD, fg="#aeb7bd", readonlybackground=FIELD, relief="flat", bd=0, font=("Segoe UI", 9))
-        folder_entry.pack(fill="x", padx=10, pady=8)
-        
-        btn_folder = tk.Button(fr, text="📁", command=self.choose_folder, bg="#c8a97e", fg="#12181f", activebackground="#d8b98e", relief="flat", bd=0, font=("Segoe UI", 11), width=4, cursor="hand2")
-        btn_folder.pack(side="right", fill="y")
+        h1 = tk.Frame(ibody, bg=PANEL)
+        h1.pack(fill="x", padx=16, pady=(14, 10))
+        tk.Label(h1, text="\U0001F4C1", bg=PANEL, fg=GOLD, font=("Segoe UI", 13)).pack(side="left", padx=(0, 8))
+        tk.Label(h1, text="Albüm Bilgileri", bg=PANEL, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(side="left")
 
-        tk.Label(ibody, text="Albüm Adı (Klasör Adı)", bg=PANEL, fg="#a0acb5", font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=16, pady=(0, 4))
+        tk.Label(ibody, text="Albüm Klasörü", bg=PANEL, fg=TEXT, font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=16, pady=(0, 5))
+        fr = tk.Frame(ibody, bg=PANEL)
+        fr.pack(fill="x", padx=16, pady=(0, 12))
+        fbox = RoundedFrame(fr, radius=6, fill=FIELD, outline=BORDER)
+        fbox.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        folder_entry = tk.Entry(fbox.body, textvariable=self.folder_var, state="readonly", bg=FIELD, fg="#aeb7bd", readonlybackground=FIELD, relief="flat", bd=0, font=("Segoe UI", 9))
+        folder_entry.pack(fill="x", padx=10, pady=9)
+
+        fbtn_wrap = RoundedFrame(fr, radius=6, fill=GOLD, outline=GOLD, border=0)
+        fbtn_wrap.pack(side="right")
+        btn_folder = tk.Button(fbtn_wrap.body, text="\U0001F4C1", command=self.choose_folder, bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER, activeforeground="#141a20", relief="flat", bd=0, font=("Segoe UI", 11), width=4, cursor="hand2")
+        btn_folder.pack(padx=1, pady=1)
+
+        tk.Label(ibody, text="Albüm Adı (Klasör Adı)", bg=PANEL, fg=TEXT, font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=16, pady=(0, 5))
         abox = RoundedFrame(ibody, radius=6, fill=FIELD, outline=BORDER)
         abox.pack(fill="x", padx=16, pady=(0, 16))
         self.album_entry = tk.Entry(abox.body, textvariable=self.output_name_var, bg=FIELD, fg=TEXT, insertbackground=TEXT, relief="flat", bd=0, font=("Segoe UI", 9))
-        self.album_entry.pack(fill="x", padx=10, pady=8)
+        self.album_entry.pack(fill="x", padx=10, pady=9)
 
         self._album_placeholder = "Örn: Ayşe & Mehmet"
         def _album_focus_in(e=None):
@@ -234,54 +241,63 @@ class App(tk.Tk):
         self.album_entry.bind("<FocusIn>", _album_focus_in)
         self.album_entry.bind("<FocusOut>", _album_focus_out)
 
-        # 2. Seçim Sayıları
+        # 2. Secim Sayilari
         counts = RoundedFrame(upper, radius=10, fill=PANEL, outline=BORDER)
         counts.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
         cbody = counts.body
 
-        tk.Label(cbody, text="🖼   Seçim Sayıları", bg=PANEL, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=16, pady=(14, 10))
+        h2 = tk.Frame(cbody, bg=PANEL)
+        h2.pack(fill="x", padx=16, pady=(14, 10))
+        tk.Label(h2, text="\U0001F5BC", bg=PANEL, fg=GOLD, font=("Segoe UI", 13)).pack(side="left", padx=(0, 8))
+        tk.Label(h2, text="Seçim Sayıları", bg=PANEL, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(side="left")
 
         self.count_spins = {}; self.count_badges = {}; self.count_labels = {}
-        def count_row(icon, label, var, enabled_var=None):
+        def count_row(label, var):
             row = tk.Frame(cbody, bg=PANEL)
-            row.pack(fill="x", padx=16, pady=4)
-            tk.Label(row, text=icon, bg=PANEL, fg="#a0acb5", font=("Segoe UI", 11)).pack(side="left", padx=(0, 8))
+            row.pack(fill="x", padx=16, pady=5)
+            tk.Label(row, text="\U0001F5BC", bg=PANEL, fg="#9aa5ae", font=("Segoe UI", 12)).pack(side="left", padx=(0, 9))
             lb = tk.Label(row, text=label, bg=PANEL, fg=TEXT, font=("Segoe UI", 9))
             lb.pack(side="left")
             badge = tk.Label(row, text="(Zorunlu)", bg=PANEL, fg=MUTED, font=("Segoe UI", 8))
             badge.pack(side="right", padx=(6, 0))
-            
             sbox = RoundedFrame(row, radius=6, fill=FIELD, outline=BORDER)
             sbox.pack(side="right")
-            spin = tk.Spinbox(sbox.body, from_=1, to=99, textvariable=var, width=4, bg=FIELD, fg="#f0f2f4", buttonbackground="#2b3840", relief="flat", bd=0, font=("Segoe UI", 9, "bold"), justify="center", disabledbackground="#10171c", disabledforeground="#59636a")
-            spin.pack(padx=4, pady=3)
+            srow = tk.Frame(sbox.body, bg=FIELD)
+            srow.pack(padx=2, pady=2)
+            tk.Label(srow, text="\U0001F5BC", bg=FIELD, fg="#8b959d", font=("Segoe UI", 9)).pack(side="left", padx=(6, 2))
+            tk.Frame(srow, bg=BORDER, width=1, height=18).pack(side="left", padx=4)
+            spin = tk.Spinbox(srow, from_=1, to=500, textvariable=var, width=5, bg=FIELD, fg="#f0f2f4", buttonbackground=FIELD, relief="flat", bd=0, font=("Segoe UI", 10, "bold"), justify="center", disabledbackground=FIELD, disabledforeground="#5a656d", insertbackground=TEXT)
+            spin.pack(side="left", padx=(0, 2))
             self.count_spins[label] = spin; self.count_badges[label] = badge; self.count_labels[label] = lb
 
-        count_row("🖼", "Normal Fotoğraf Sayısı", self.count_var)
-        count_row("🖼", "Albüm Kapağı", self.cover_count_var, self.cover_var)
-        count_row("🖼", "Tablo Fotoğrafı", self.table_count_var, self.table_var)
+        count_row("Normal Fotoğraf Sayısı", self.count_var)
+        count_row("Albüm Kapağı", self.cover_count_var)
+        count_row("Tablo Fotoğrafı", self.table_count_var)
 
-        # 3. Ekstra Seçenekler (Görünüm Ayarları Yerine Tam Genişlikte)
+        # 3. Ekstra Secenekler - tam genislik (Gorunum Ayarlari yok)
         extra = RoundedFrame(inner, radius=10, fill=PANEL, outline=BORDER)
         extra.pack(fill="x", pady=(12, 0))
         ebody = extra.body
 
-        tk.Label(ebody, text="⚙   Ekstra Seçenekler", bg=PANEL, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=16, pady=(12, 2))
-        tk.Label(ebody, text="İhtiyacınıza göre ek seçimleri aktif edebilirsiniz.", bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=16, pady=(0, 8))
+        eh = tk.Frame(ebody, bg=PANEL)
+        eh.pack(fill="x", padx=16, pady=(13, 1))
+        tk.Label(eh, text="⚙", bg=PANEL, fg=GOLD, font=("Segoe UI", 13, "bold")).pack(side="left", padx=(0, 8))
+        tk.Label(eh, text="Ekstra Seçenekler", bg=PANEL, fg=GOLD, font=("Segoe UI", 11, "bold")).pack(side="left")
+        tk.Label(ebody, text="İhtiyacınıza göre ek seçimleri aktif edebilirsiniz.", bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=16, pady=(0, 10))
 
         opts = tk.Frame(ebody, bg=PANEL)
-        opts.pack(fill="x", padx=16, pady=(0, 12))
+        opts.pack(fill="x", padx=16, pady=(0, 14))
         opts.grid_columnconfigure(0, weight=1)
         opts.grid_columnconfigure(1, weight=1)
 
         def make_toggle(parent, var):
-            cvs = tk.Canvas(parent, width=38, height=20, bg=PANEL2, highlightthickness=0, bd=0, cursor="hand2")
+            cvs = tk.Canvas(parent, width=40, height=22, bg=PANEL2, highlightthickness=0, bd=0, cursor="hand2")
             def draw():
                 on = bool(var.get())
                 cvs.delete("all")
-                draw_rr(cvs, 1, 1, 37, 19, 9, fill=(GOLD if on else "#3a454e"), outline=(GOLD if on else "#4a565f"), width=1, tags="tg")
-                x = 26 if on else 11
-                cvs.create_oval(x - 7, 3, x + 7, 17, fill="#ffffff", outline="")
+                draw_rr(cvs, 1, 1, 39, 21, 10, fill=(GOLD if on else "#39454f"), outline=(GOLD if on else "#4a565f"), width=1, tags="tg")
+                x = 28 if on else 12
+                cvs.create_oval(x - 7, 4, x + 7, 18, fill="#ffffff", outline="")
             draw()
             def flip(e=None):
                 var.set(not var.get())
@@ -295,22 +311,22 @@ class App(tk.Tk):
             box = RoundedFrame(opts, radius=8, fill=PANEL2, outline=BORDER)
             box.grid(row=0, column=column, sticky="ew", padx=4)
             top = tk.Frame(box.body, bg=PANEL2)
-            top.pack(fill="x", padx=10, pady=8)
-            tk.Label(top, text=icon, bg=PANEL2, fg=GOLD, font=("Segoe UI", 11)).pack(side="left", padx=(0, 8))
+            top.pack(fill="x", padx=12, pady=10)
+            tk.Label(top, text=icon, bg=PANEL2, fg=GOLD, font=("Segoe UI", 12)).pack(side="left", padx=(0, 10))
             tx = tk.Frame(top, bg=PANEL2)
             tx.pack(side="left", fill="x", expand=True)
             tk.Label(tx, text=text, bg=PANEL2, fg=TEXT, font=("Segoe UI", 9, "bold")).pack(anchor="w")
-            tk.Label(tx, text=sub, bg=PANEL2, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w")
+            tk.Label(tx, text=sub, bg=PANEL2, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", pady=(2, 0))
             sw = make_toggle(top, var)
             sw.pack(side="right", padx=(6, 0))
 
-        option("🖼", "Albüm Kapağı Seç", "Kapak fotoğrafı seçimi yapılacak.", self.cover_var, 0)
-        option("🖼", "Tablo Fotoğrafı Seç", "Tablo fotoğrafı seçimi yapılacak.", self.table_var, 1)
+        option("\U0001F5BC", "Albüm Kapağı Seç", "Kapak fotoğrafı seçimi yapılacak.", self.cover_var, 0)
+        option("\U0001F5BC", "Tablo Fotoğrafı Seç", "Tablo fotoğrafı seçimi yapılacak.", self.table_var, 1)
 
-        # 4. Alt Dev Başla Butonu
-        GoldButton(inner, "▶    Başla", self.start, BG, height=44, radius=8, font=("Segoe UI", 11, "bold")).pack(fill="x", pady=(12, 0))
+        # 4. Basla - tam genislik gold
+        GoldButton(inner, "▶      Başla", self.start, OUTER, height=48, radius=10, font=("Segoe UI", 12, "bold")).pack(fill="x", pady=(12, 0))
 
-        self._setup_win = cv.create_window((0, 0), window=shell, anchor="n", width=820)
+        self._setup_win = cv.create_window((0, 0), window=shell, anchor="n", width=860)
         self._sync_optional_count_states()
 
         def _on_cfg(e=None):
@@ -331,38 +347,44 @@ class App(tk.Tk):
             w = cv.winfo_width(); h = cv.winfo_height()
             if w < 60 or h < 60: return
 
-            cv.delete("bg", "hero", "foot")
+            cv.delete("bg", "dim", "hero", "foot")
             src = getattr(self, "_bg_src", None)
             if src is not None:
+                from PIL import ImageEnhance
                 s = max(w / src.width, h / src.height)
                 nw, nh = max(1, int(src.width * s)), max(1, int(src.height * s))
                 img = src.resize((nw, nh), Image.Resampling.BILINEAR)
                 left, top = (nw - w) // 2, (nh - h) // 2
                 img = img.crop((left, top, left + w, top + h))
+                img = ImageEnhance.Brightness(img).enhance(0.48)
                 self._bg_ref = ImageTk.PhotoImage(img)
                 cv.create_image(0, 0, image=self._bg_ref, anchor="nw", tags="bg")
 
             cx = w // 2
-            iy = 40
-            
-            # Üst Logo Çizimi
-            cv.create_rectangle(cx - 26, iy - 10, cx + 26, iy + 18, outline=GOLD, width=3, tags="hero")
-            cv.create_oval(cx - 10, iy - 4, cx + 10, iy + 16, outline=GOLD, width=3, tags="hero")
-            cv.create_rectangle(cx - 12, iy - 18, cx + 4, iy - 10, outline=GOLD, width=3, tags="hero")
+            iy = 42
 
-            cv.create_text(cx - 8, iy + 45, text="Foto", anchor="e", fill="#ffffff", font=("Segoe UI", 26, "bold"), tags="hero")
-            cv.create_text(cx - 4, iy + 45, text="Secim", anchor="w", fill=GOLD, font=("Segoe UI", 26, "bold"), tags="hero")
+            # Kamera ikonu - gold kontur
+            cv.create_rectangle(cx - 30, iy - 8, cx + 30, iy + 22, outline=GOLD, width=3, tags="hero")
+            cv.create_oval(cx - 12, iy - 1, cx + 12, iy + 21, outline=GOLD, width=3, tags="hero")
+            cv.create_oval(cx - 5, iy + 6, cx + 5, iy + 14, outline=GOLD, width=2, tags="hero")
+            cv.create_rectangle(cx - 14, iy - 17, cx + 5, iy - 8, outline=GOLD, width=3, tags="hero")
+            cv.create_oval(cx + 22, iy - 4, cx + 26, iy + 0, outline=GOLD, width=2, tags="hero")
 
-            cv.create_text(cx, iy + 78, text="Düğün Fotoğraflarınız İçin Hızlı ve Kolay Seçim", fill="#e6e9eb", font=("Segoe UI", 11), tags="hero")
-            cv.create_text(cx, iy + 102, text="Müşterilerinizin fotoğraf seçimlerini kolaylaştırın.", fill="#9aa4ab", font=("Segoe UI", 8), tags="hero")
-            cv.create_text(cx, iy + 118, text="Siz sadece en güzel anlara odaklanın.", fill="#9aa4ab", font=("Segoe UI", 8), tags="hero")
+            cv.create_text(cx - 6, iy + 52, text="Foto", anchor="e", fill="#f2f3f4", font=("Segoe UI", 30, "bold"), tags="hero")
+            cv.create_text(cx - 2, iy + 52, text="Secim", anchor="w", fill=GOLD, font=("Segoe UI", 30, "bold"), tags="hero")
 
-            try: cv.coords(self._setup_win, cx, iy + 140)
+            cv.create_text(cx, iy + 88, text="Düğün Fotoğraflarınız İçin Hızlı ve Kolay Seçim", fill="#e8ebed", font=("Segoe UI", 12, "bold"), tags="hero")
+            cv.create_rectangle(cx - 32, iy + 100, cx + 32, iy + 102, fill=GOLD, outline="", tags="hero")
+
+            cv.create_text(cx, iy + 118, text="Müşterilerinizin fotoğraf seçimlerini kolaylaştırın.", fill="#a7b0b7", font=("Segoe UI", 9), tags="hero")
+            cv.create_text(cx, iy + 135, text="Siz sadece en güzel anlara odaklanın.", fill="#a7b0b7", font=("Segoe UI", 9), tags="hero")
+
+            try: cv.coords(self._setup_win, cx, iy + 158)
             except Exception: pass
 
-            cv.create_rectangle(0, h - 32, w, h, fill="#080c0f", outline="", tags="foot")
-            cv.create_text(16, h - 16, text="ⓘ  FotoSecim v1.0   |   Düğün Fotoğraf Seçim Uygulaması", anchor="w", fill="#6f7980", font=("Segoe UI", 8), tags="foot")
-            cv.create_text(w - 16, h - 16, text="♡  Fotoğraf, en güzel hikayedir...", anchor="e", fill="#6f7980", font=("Segoe UI", 8), tags="foot")
+            cv.create_rectangle(0, h - 34, w, h, fill="#090d10", outline="", tags="foot")
+            cv.create_text(16, h - 17, text="ⓘ   FotoSecim v1.0    |    Düğün Fotoğraf Seçim Uygulaması", anchor="w", fill="#707a82", font=("Segoe UI", 8), tags="foot")
+            cv.create_text(w - 16, h - 17, text="♡   Fotoğraf, en güzel hikayedir...", anchor="e", fill="#707a82", font=("Segoe UI", 8), tags="foot")
             cv.tag_lower("bg")
         finally:
             self._is_painting = False
