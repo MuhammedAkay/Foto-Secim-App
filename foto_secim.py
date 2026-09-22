@@ -164,6 +164,10 @@ class App(tk.Tk):
         return base.joinpath(*parts)
 
     def _build_setup(self):
+        try:
+            self._gallery_unbind()
+        except Exception:
+            pass
         self.clear()
         try:
             from PIL import Image as _PILImage
@@ -427,84 +431,318 @@ class App(tk.Tk):
         
         self.photos = photos; self.normal_count = count; self.cover_required = self.cover_var.get(); self.table_required = self.table_var.get()
         self.output_dir = self.folder / album_name; self.selected.clear(); self.normal_selection.clear(); self.cover = None; self.table = None; self.mode = "normal"
+        self.view_index = 0
         self._selection_page()
 
     def _selection_page(self):
-        self.clear(); root = tk.Frame(self, bg=BG); root.pack(fill="both", expand=True); self._topbar(root)
-        head = tk.Frame(root, bg=BG); head.pack(fill="x", padx=22, pady=(15, 7)); left = tk.Frame(head, bg=BG); left.pack(side="left")
-        self.step = tk.Label(left, text="1  •  NORMAL FOTOĞRAFLAR", bg=BG, fg=GOLD, font=("Segoe UI", 16, "bold")); self.step.pack(anchor="w")
-        self.sub = tk.Label(left, text=f"{len(self.photos)} fotoğraf bulundu  •  {self.folder.name}", bg=BG, fg=MUTED, font=("Segoe UI", 9)); self.sub.pack(anchor="w", pady=(2, 0))
-        self.counter = tk.Label(head, text="", bg=BG, fg=TEXT, font=("Segoe UI", 12, "bold")); self.counter.pack(side="right")
-        
-        controls = tk.Frame(root, bg=BG); controls.pack(fill="x", padx=22, pady=(0, 9))
-        self.dark_button(controls, "← Ayarlar", self.go_setup).pack(side="left")
-        self.dark_button(controls, "↻ Temizle", self.clear_current).pack(side="left", padx=7)
-        self.gold_button(controls, "İLERİ  →", self.next_step).pack(side="right")
+        try:
+            self.unbind_all("<MouseWheel>")
+        except Exception:
+            pass
+        self.clear()
+        if not getattr(self, "photos", None):
+            self._build_setup()
+            return
+        if not hasattr(self, "view_index") or self.view_index is None:
+            self.view_index = 0
+        self.view_index = max(0, min(self.view_index, len(self.photos) - 1))
+        self._thumb_refs = {}
+        self._thumb_labels = {}
+        self._viewer_ref = None
+        self._viewer_job = None
 
-        body = tk.Frame(root, bg=BG); body.pack(fill="both", expand=True, padx=22, pady=(0, 18))
-        body.columnconfigure(0, weight=3); body.columnconfigure(1, weight=1); body.rowconfigure(0, weight=1)
+        root = tk.Frame(self, bg=BG)
+        root.pack(fill="both", expand=True)
+        self._gal_root = root
+        self._topbar(root)
 
-        main = tk.Frame(body, bg=PANEL, highlightbackground=LINE, highlightthickness=1); main.grid(row=0, column=0, sticky="nsew", padx=(0, 7))
-        main.rowconfigure(1, weight=1); main.columnconfigure(0, weight=1)
+        head = tk.Frame(root, bg=BG)
+        head.pack(fill="x", padx=22, pady=(12, 6))
+        left = tk.Frame(head, bg=BG)
+        left.pack(side="left")
+        self.step = tk.Label(left, text="", bg=BG, fg=GOLD, font=("Segoe UI", 15, "bold"))
+        self.step.pack(anchor="w")
+        self.sub = tk.Label(left, text="", bg=BG, fg=MUTED, font=("Segoe UI", 9))
+        self.sub.pack(anchor="w", pady=(2, 0))
 
-        self.preview = tk.Label(main, text="Fotoğraf seçmek için bir görsele tıklayın", bg="#0f151a", fg="#65717a", font=("Segoe UI", 12))
-        self.preview.grid(row=0, column=0, sticky="ew", padx=10, pady=10, ipady=30)
+        right = tk.Frame(head, bg=BG)
+        right.pack(side="right")
+        self.counter = tk.Label(right, text="", bg=BG, fg=TEXT, font=("Segoe UI", 12, "bold"))
+        self.counter.pack(anchor="e")
+        self.progress = tk.Canvas(right, width=220, height=6, bg=BG, highlightthickness=0)
+        self.progress.pack(anchor="e", pady=(6, 0))
 
-        self.canvas = tk.Canvas(main, bg="#0f151a", highlightthickness=0); self.canvas.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
-        sb = ttk.Scrollbar(main, orient="vertical", command=self.canvas.yview); sb.grid(row=1, column=1, sticky="ns", pady=(0, 10))
-        self.canvas.configure(yscrollcommand=sb.set)
+        controls = tk.Frame(root, bg=BG)
+        controls.pack(fill="x", padx=22, pady=(0, 8))
+        self.dark_button(controls, "\u2190 Ayarlar", self.go_setup).pack(side="left")
+        self.dark_button(controls, "\u21bb Temizle", self.clear_current).pack(side="left", padx=7)
+        self.gold_button(controls, "\u0130LER\u0130  \u2192", self.next_step).pack(side="right")
 
-        self.grid_frame = tk.Frame(self.canvas, bg="#0f151a"); self.win = self.canvas.create_window((0, 0), window=self.grid_frame, anchor="nw")
-        self.grid_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas.bind("<Configure>", lambda e: self.reflow(e.width))
-        self.canvas.bind_all("<MouseWheel>", lambda e: self.canvas.yview_scroll(int(-e.delta / 120), "units"))
+        viewer_wrap = tk.Frame(root, bg=PANEL, highlightbackground=LINE, highlightthickness=1)
+        viewer_wrap.pack(fill="both", expand=True, padx=22, pady=(0, 8))
+        viewer_wrap.rowconfigure(0, weight=1)
+        viewer_wrap.columnconfigure(1, weight=1)
 
-        side = tk.Frame(body, bg=PANEL, highlightbackground=LINE, highlightthickness=1); side.grid(row=0, column=1, sticky="nsew", padx=(7, 0))
-        self.side_title = tk.Label(side, text="SEÇİM BİLGİLERİ", bg=PANEL, fg=GOLD, font=("Segoe UI", 12, "bold")); self.side_title.pack(anchor="w", padx=18, pady=(18, 5))
-        self.side_info = tk.Label(side, text="", justify="left", bg=PANEL, fg=TEXT, font=("Segoe UI", 10), anchor="nw"); self.side_info.pack(fill="x", padx=18, pady=10)
+        self.nav_prev = tk.Button(viewer_wrap, text="\u2039", command=self.gallery_prev, bg=PANEL, fg=GOLD, activebackground="#223039", activeforeground=GOLD, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 34, "bold"), width=2)
+        self.nav_prev.grid(row=0, column=0, sticky="ns", padx=(4, 0), pady=4)
+        self.nav_next = tk.Button(viewer_wrap, text="\u203a", command=self.gallery_next, bg=PANEL, fg=GOLD, activebackground="#223039", activeforeground=GOLD, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 34, "bold"), width=2)
+        self.nav_next.grid(row=0, column=2, sticky="ns", padx=(0, 4), pady=4)
 
-        tk.Frame(side, bg=LINE, height=1).pack(fill="x", padx=18, pady=8)
-        tk.Label(side, text="İPUCU", bg=PANEL, fg=GOLD, font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=18)
-        tk.Label(side, text="Tek tık: seç / kaldır\nÇift tık: büyük görüntü\nSeçimler yeşil çerçeveyle gösterilir.", bg=PANEL, fg=MUTED, font=("Segoe UI", 9), justify="left").pack(anchor="w", padx=18, pady=7)
+        center = tk.Frame(viewer_wrap, bg="#0c1116")
+        center.grid(row=0, column=1, sticky="nsew", padx=4, pady=8)
+        center.rowconfigure(0, weight=1)
+        center.columnconfigure(0, weight=1)
+        self.viewer_label = tk.Label(center, text="Y\u00fckleniyor...", bg="#0c1116", fg=MUTED, font=("Segoe UI", 11))
+        self.viewer_label.grid(row=0, column=0, sticky="nsew")
+        self.viewer_label.bind("<Configure>", self._viewer_cfg)
+        self.viewer_label.bind("<Double-Button-1>", lambda e: self.open_photo(self.photos[self.view_index]))
 
-        self._render(); self._update()
+        self.caption = tk.Label(center, text="", bg="#0c1116", fg="#c9d1d7", font=("Segoe UI", 9))
+        self.caption.grid(row=1, column=0, sticky="ew", pady=(4, 2))
+        self.badge = tk.Label(center, text="", bg="#0c1116", fg="#8be1a9", font=("Segoe UI", 10, "bold"))
+        self.badge.grid(row=2, column=0, sticky="ew", pady=(0, 4))
+
+        toolbar = tk.Frame(root, bg=PANEL, highlightbackground=LINE, highlightthickness=1)
+        toolbar.pack(fill="x", padx=22, pady=(0, 8))
+        bar = tk.Frame(toolbar, bg=PANEL)
+        bar.pack(pady=8)
+        self.tb_select = tk.Button(bar, text="\u2665  Se\u00e7", command=self.gallery_toggle_current, bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 11, "bold"), padx=22, pady=8)
+        self.tb_select.pack(side="left", padx=5)
+        self.tb_prev = tk.Button(bar, text="\u25c0 \u00d6nceki", command=self.gallery_prev, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_prev.pack(side="left", padx=5)
+        self.tb_next = tk.Button(bar, text="Sonraki \u25b6", command=self.gallery_next, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_next.pack(side="left", padx=5)
+        self.tb_compare = tk.Button(bar, text="\u25a6 Kar\u015f\u0131la\u015ft\u0131r", command=self.gallery_compare, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_compare.pack(side="left", padx=5)
+        self.tb_zoom = tk.Button(bar, text="\u26f6 B\u00fcy\u00fct", command=lambda: self.open_photo(self.photos[self.view_index]), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_zoom.pack(side="left", padx=5)
+        tk.Label(bar, text="\u2190 \u2192 gez \u2022 Space se\u00e7 \u2022 F b\u00fcy\u00fct", bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).pack(side="left", padx=(12, 0))
+
+        strip_wrap = tk.Frame(root, bg=PANEL, highlightbackground=LINE, highlightthickness=1)
+        strip_wrap.pack(fill="x", padx=22, pady=(0, 14))
+        self.strip_canvas = tk.Canvas(strip_wrap, bg=PANEL, highlightthickness=0, height=86)
+        self.strip_canvas.pack(side="left", fill="x", expand=True, padx=(8, 0), pady=8)
+        strip_sb = ttk.Scrollbar(strip_wrap, orient="horizontal", command=self.strip_canvas.xview)
+        strip_sb.pack(side="bottom", fill="x", padx=8, pady=(0, 6))
+        self.strip_canvas.configure(xscrollcommand=strip_sb.set)
+        self.strip_inner = tk.Frame(self.strip_canvas, bg=PANEL)
+        self._strip_win = self.strip_canvas.create_window((0, 0), window=self.strip_inner, anchor="nw")
+        self.strip_inner.bind("<Configure>", lambda e: self.strip_canvas.configure(scrollregion=self.strip_canvas.bbox("all")))
+        self.strip_canvas.bind("<MouseWheel>", self._strip_wheel)
+        self.strip_canvas.bind("<Button-4>", lambda e: self.strip_canvas.xview_scroll(-1, "units"))
+        self.strip_canvas.bind("<Button-5>", lambda e: self.strip_canvas.xview_scroll(1, "units"))
+
+        self.bind("<Left>", lambda e: self.gallery_prev())
+        self.bind("<Right>", lambda e: self.gallery_next())
+        self.bind("<Up>", lambda e: self.gallery_prev())
+        self.bind("<Down>", lambda e: self.gallery_next())
+        self.bind("<space>", lambda e: self.gallery_toggle_current())
+        self.bind("<Return>", lambda e: self.gallery_toggle_current())
+        self.bind("<f>", lambda e: self.open_photo(self.photos[self.view_index]))
+        self.bind("<F>", lambda e: self.open_photo(self.photos[self.view_index]))
+
+        self._build_strip()
+        self.gallery_show(self.view_index)
+        self._update()
+
+    def _strip_wheel(self, e=None):
+        try:
+            if e is not None and getattr(e, "delta", 0):
+                self.strip_canvas.xview_scroll(int(-e.delta / 120), "units")
+            else:
+                self.strip_canvas.xview_scroll(1, "units")
+        except Exception:
+            pass
+
+    def _viewer_cfg(self, e=None):
+        if self._viewer_job is not None:
+            try:
+                self.after_cancel(self._viewer_job)
+            except Exception:
+                pass
+        self._viewer_job = self.after(120, self._viewer_draw)
+
+    def _viewer_draw(self):
+        self._viewer_job = None
+        if not hasattr(self, "viewer_label") or not self.viewer_label.winfo_exists():
+            return
+        if not getattr(self, "photos", None):
+            return
+        try:
+            w = self.viewer_label.winfo_width()
+            h = self.viewer_label.winfo_height()
+            if w < 50 or h < 50:
+                return
+            path = self.photos[self.view_index]
+            with Image.open(path) as im:
+                im = im.convert("RGB")
+                im.thumbnail((max(100, w - 20), max(100, h - 10)), Image.Resampling.LANCZOS)
+                self._viewer_ref = ImageTk.PhotoImage(im.copy())
+                self.viewer_label.configure(image=self._viewer_ref, text="")
+        except Exception:
+            try:
+                self.viewer_label.configure(text="\u00d6nizleme a\u00e7\u0131lamad\u0131", image="")
+            except Exception:
+                pass
+
+    def _build_strip(self):
+        for w in self.strip_inner.winfo_children():
+            w.destroy()
+        self._thumb_refs = {}
+        self._thumb_labels = {}
+        for i, path in enumerate(self.photos):
+            cell = tk.Frame(self.strip_inner, bg="#0c1116", highlightbackground=LINE, highlightthickness=1, cursor="hand2")
+            cell.pack(side="left", padx=4)
+            lab = tk.Label(cell, bg="#0c1116", fg=MUTED, font=("Segoe UI", 7), cursor="hand2")
+            lab.pack(padx=3, pady=3)
+            lab.bind("<Button-1>", lambda e, idx=i: self.gallery_show(idx))
+            cell.bind("<Button-1>", lambda e, idx=i: self.gallery_show(idx))
+            self._thumb_labels[path] = (cell, lab)
+            try:
+                with Image.open(path) as im:
+                    im = im.convert("RGB")
+                    im.thumbnail((104, 62), Image.Resampling.LANCZOS)
+                    bg = Image.new("RGB", (104, 62), "#0c1116")
+                    bg.paste(im, ((104 - im.width) // 2, (62 - im.height) // 2))
+                    ref = ImageTk.PhotoImage(bg)
+                    self._thumb_refs[path] = ref
+                    lab.configure(image=ref)
+            except Exception:
+                lab.configure(text="...")
+        self.after(50, self._strip_refresh)
+
+    def _strip_refresh(self):
+        try:
+            for i, path in enumerate(self.photos):
+                pair = self._thumb_labels.get(path)
+                if not pair:
+                    continue
+                cell, lab = pair
+                if i == getattr(self, "view_index", -1):
+                    cell.configure(highlightbackground=GOLD, highlightthickness=2)
+                elif path in self.selected:
+                    cell.configure(highlightbackground="#3fae6a", highlightthickness=2)
+                else:
+                    cell.configure(highlightbackground=LINE, highlightthickness=1)
+            try:
+                cells = list(self.strip_inner.winfo_children())
+                if 0 <= self.view_index < len(cells):
+                    x = cells[self.view_index].winfo_x()
+                    self.strip_canvas.xview_moveto(max(0, (x - 200) / max(1, self.strip_canvas.bbox("all")[2])))
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def gallery_show(self, idx):
+        if not getattr(self, "photos", None):
+            return
+        self.view_index = max(0, min(idx, len(self.photos) - 1))
+        self._viewer_draw()
+        self._strip_refresh()
+        self._update()
+
+    def gallery_next(self, e=None):
+        if not getattr(self, "photos", None):
+            return
+        if self.view_index < len(self.photos) - 1:
+            self.gallery_show(self.view_index + 1)
+
+    def gallery_prev(self, e=None):
+        if not getattr(self, "photos", None):
+            return
+        if self.view_index > 0:
+            self.gallery_show(self.view_index - 1)
+
+    def gallery_toggle_current(self, e=None):
+        if not getattr(self, "photos", None):
+            return
+        self.toggle(self.photos[self.view_index])
+
+    def gallery_compare(self):
+        messagebox.showinfo("Kar\u015f\u0131la\u015ft\u0131r", "Kar\u015f\u0131la\u015ft\u0131rma ekran\u0131 sonraki ad\u0131mda eklenecek. \u015eimdilik galeriden se\u00e7ime devam edebilirsiniz.")
 
     def reflow(self, width):
-        cols = max(2, min(5, width // 200))
-        for i, c in enumerate(self.cards.values()): c.grid(row=i // cols, column=i % cols, padx=6, pady=6, sticky="n")
+        return
 
     def _render(self):
-        for w in self.grid_frame.winfo_children(): w.destroy()
-        self.cards = {}
-        for p in self.photos: self.cards[p] = PhotoCard(self.grid_frame, p, self.toggle, self.open_photo)
-        self.after(60, lambda: self.reflow(self.canvas.winfo_width()))
+        return
 
     def toggle(self, path):
         if self.mode == "normal":
-            if path in self.selected: self.selected.remove(path)
-            elif len(self.selected) < self.normal_count: self.selected.add(path)
-            else: messagebox.showinfo("Limit doldu", f"En fazla {self.normal_count} normal fotoğraf seçebilirsiniz."); return
+            if path in self.selected:
+                self.selected.remove(path)
+            elif len(self.selected) < self.normal_count:
+                self.selected.add(path)
+            else:
+                messagebox.showinfo("Limit doldu", f"En fazla {self.normal_count} normal foto\u011fraf se\u00e7ebilirsiniz.")
+                return
         else:
             self.selected = {path}
-            self.preview_photo(path)
-        self.refresh(); self._update()
+        self.refresh()
+        self._update()
 
     def refresh(self):
-        for p, c in self.cards.items(): c.selected = p in self.selected; c.refresh()
+        if hasattr(self, "_thumb_labels"):
+            self._strip_refresh()
+        if hasattr(self, "viewer_label"):
+            self._viewer_draw()
 
     def preview_photo(self, path):
         try:
-            with Image.open(path) as im:
-                im = im.convert("RGB"); im.thumbnail((700, 250), Image.Resampling.LANCZOS); self.prev_ref = ImageTk.PhotoImage(im.copy()); self.preview.configure(image=self.prev_ref, text="")
-        except: pass
+            idx = self.photos.index(path)
+            self.gallery_show(idx)
+        except Exception:
+            pass
 
     def _update(self):
-        if self.mode == "normal":
-            self.step.configure(text="1  •  NORMAL FOTOĞRAFLAR"); self.counter.configure(text=f"Seçilen  {len(self.selected)} / {self.normal_count}"); self.side_info.configure(text=f"Normal fotoğraf\n{len(self.selected)} / {self.normal_count}\n\nKlasör\n{self.folder.name}")
-        elif self.mode == "cover":
-            self.step.configure(text="2  •  ALBÜM KAPAĞI"); self.counter.configure(text=f"Kapak  {1 if self.selected else 0} / 1"); self.side_info.configure(text="Kapak olarak kullanılacak 1 fotoğraf seçin.\n\nSeçtiğiniz fotoğraf doğrudan kapak olarak kopyalanacaktır.")
-        else:
-            self.step.configure(text="3  •  TABLO FOTOĞRAFI"); self.counter.configure(text=f"Tablo  {1 if self.selected else 0} / 1"); self.side_info.configure(text="Tablo için kullanılacak fotoğrafı seçin.\n\nTek fotoğraf seçilebilir.")
+        if not hasattr(self, "step") or not self.step.winfo_exists():
+            return
+        try:
+            total = len(getattr(self, "photos", []))
+            idx = getattr(self, "view_index", 0)
+            cur = self.photos[idx] if total else None
+            if self.mode == "normal":
+                self.step.configure(text="1  \u2022  NORMAL FOTO\u011eRAFLAR")
+                self.counter.configure(text=f"Se\u00e7ilen  {len(self.selected)} / {self.normal_count}")
+                frac = (len(self.selected) / max(1, self.normal_count))
+            elif self.mode == "cover":
+                self.step.configure(text="2  \u2022  ALB\u00dcM KAPA\u011eI")
+                self.counter.configure(text=f"Kapak  {1 if self.selected else 0} / 1")
+                frac = (1 if self.selected else 0)
+            else:
+                self.step.configure(text="3  \u2022  TABLO FOTO\u011eRAFI")
+                self.counter.configure(text=f"Tablo  {1 if self.selected else 0} / 1")
+                frac = (1 if self.selected else 0)
+            try:
+                self.sub.configure(text=f"{total} foto\u011fraf  \u2022  {self.folder.name}  \u2022  {idx + 1} / {total}")
+            except Exception:
+                pass
+            if cur is not None:
+                try:
+                    self.caption.configure(text=f"{idx + 1} / {total}  \u2022  {cur.name}")
+                    if cur in self.selected:
+                        self.badge.configure(text="\u2665 SE\u00c7\u0130LD\u0130  \u2713", fg="#8be1a9")
+                    else:
+                        self.badge.configure(text="", fg="#8be1a9")
+                except Exception:
+                    pass
+                try:
+                    if cur in self.selected:
+                        self.tb_select.configure(bg="#3fae6a", activebackground="#4cc47e", text="\u2713  Se\u00e7ildi")
+                    else:
+                        self.tb_select.configure(bg=GOLD, activebackground=GOLD_HOVER, text="\u2665  Se\u00e7")
+                except Exception:
+                    pass
+            try:
+                self.progress.delete("all")
+                w = 220
+                self.progress.create_rectangle(0, 1, w, 5, fill="#222c35", outline="")
+                self.progress.create_rectangle(0, 1, int(w * max(0, min(1, frac))), 5, fill=GOLD, outline="")
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def clear_current(self): self.selected.clear(); self.refresh(); self._update()
 
@@ -512,27 +750,39 @@ class App(tk.Tk):
         if self.mode == "normal":
             if len(self.selected) != self.normal_count: messagebox.showwarning("Seçim tamamlanmadı", f"Tam olarak {self.normal_count} normal fotoğraf seçmelisiniz."); return
             self.normal_selection = set(self.selected)
-            if self.cover_required: self.mode = "cover"; self.selected.clear(); self.show_cover_mode()
-            elif self.table_required: self.mode = "table"; self.selected.clear(); self._selection_refresh()
+            if self.cover_required: self.mode = "cover"; self.selected.clear(); self.view_index = 0; self.show_cover_mode()
+            elif self.table_required: self.mode = "table"; self.selected.clear(); self.view_index = 0; self._selection_refresh()
             else: self.finish()
         elif self.mode == "cover":
             if len(self.selected) != 1: messagebox.showwarning("Kapak seçilmedi", "Lütfen 1 adet kapak fotoğrafı seçin."); return
             self.cover = next(iter(self.selected))
-            if self.table_required: self.mode = "table"; self.selected.clear(); self._selection_refresh()
+            if self.table_required: self.mode = "table"; self.selected.clear(); self.view_index = 0; self._selection_refresh()
             else: self.finish()
         elif self.mode == "table":
             if len(self.selected) != 1: messagebox.showwarning("Tablo seçilmedi", "Lütfen 1 adet tablo fotoğrafı seçin."); return
             self.table = next(iter(self.selected)); self.finish()
 
-    def _selection_refresh(self): self._selection_page(); self.mode = self.mode; self._update()
-    def show_cover_mode(self): self._selection_page(); self.mode = "cover"; self._update()
+    def _selection_refresh(self):
+        self.view_index = 0
+        self._selection_page()
+    def show_cover_mode(self):
+        self.view_index = 0
+        self._selection_page()
 
     def open_photo(self, path):
         try:
             im = Image.open(path).convert("RGB"); im.thumbnail((1050, 700), Image.Resampling.LANCZOS); ref = ImageTk.PhotoImage(im.copy()); w = tk.Toplevel(self); w.title(path.name); w.configure(bg="#000"); tk.Label(w, image=ref, bg="#000").pack(padx=10, pady=10); w.image = ref
         except Exception as e: messagebox.showerror("Fotoğraf açılamadı", str(e))
 
+    def _gallery_unbind(self):
+        for seq in ("<Left>", "<Right>", "<Up>", "<Down>", "<space>", "<Return>", "<f>", "<F>"):
+            try:
+                self.unbind(seq)
+            except Exception:
+                pass
+
     def go_setup(self):
+        self._gallery_unbind()
         if self.mode != "normal" and (self.normal_selection or self.selected):
             if not messagebox.askyesno("Ayarlar", "Ayarlar ekranına dönerseniz mevcut seçimler silinecek. Devam edilsin mi?"): return
         self._build_setup()
