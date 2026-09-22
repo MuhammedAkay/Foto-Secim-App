@@ -1,4 +1,4 @@
-# FotoSecim v1.2
+# FotoSecim v1.1
 
 Windows için yerel çalışan düğün fotoğrafı seçim uygulaması.
 
