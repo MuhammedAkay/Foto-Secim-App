@@ -126,7 +126,7 @@ class GoldButton(tk.Canvas):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("FotoSecim • Düğün Fotoğraf Seçim Uygulaması")
+        self.title("FotoSecim v2.0 • Düğün Fotoğraf Seçim Uygulaması")
         self.geometry("1280x800")
         self.minsize(1080, 700)
         self.configure(bg=BG)
@@ -526,7 +526,7 @@ class App(tk.Tk):
             except Exception: pass
 
             cv.create_rectangle(0, h - 34, w, h, fill="#090d10", outline="", tags="foot")
-            cv.create_text(16, h - 17, text="ⓘ   FotoSecim v1.0    |    Düğün Fotoğraf Seçim Uygulaması", anchor="w", fill="#707a82", font=("Segoe UI", 8), tags="foot")
+            cv.create_text(16, h - 17, text="ⓘ   FotoSecim v2.0    |    Düğün Fotoğraf Seçim Uygulaması", anchor="w", fill="#707a82", font=("Segoe UI", 8), tags="foot")
             cv.create_text(w - 16, h - 17, text="♡   Fotoğraf, en güzel hikayedir...", anchor="e", fill="#707a82", font=("Segoe UI", 8), tags="foot")
             cv.tag_lower("bg")
         finally:
