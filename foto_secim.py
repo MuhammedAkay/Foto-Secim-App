@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """FotoSecim - Windows düğün fotoğrafı seçim uygulaması."""
+import hashlib
 import os
 import sys
 import shutil
+import tempfile
+from collections import OrderedDict
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog
 try:
     from PIL import Image, ImageTk, ImageDraw, ImageFont
 except ImportError:
@@ -141,11 +144,147 @@ class App(tk.Tk):
         self.table_count_var = tk.IntVar(value=1)
 
         self._is_painting = False
+        self._modal = None
+        self._toast = None
+        self._toast_job = None
+        self._viewer_cache = OrderedDict()
         self._build_setup()
         self.bind("<Escape>", lambda e: self.go_setup())
 
     def clear(self):
         for w in self.winfo_children(): w.destroy()
+        self._modal = None
+        self._toast = None
+
+    def toast(self, msg, kind="info"):
+        try:
+            acc = {"info": GOLD, "warn": "#e0a34e", "error": "#e06c5e", "success": "#3fae6a"}.get(kind, GOLD)
+            if getattr(self, "_toast", None) is not None:
+                try:
+                    if self._toast.winfo_exists():
+                        self._toast.destroy()
+                except Exception:
+                    pass
+                self._toast = None
+            if getattr(self, "_toast_job", None) is not None:
+                try:
+                    self.after_cancel(self._toast_job)
+                except Exception:
+                    pass
+                self._toast_job = None
+            t = tk.Frame(self, bg="#0d141b", highlightbackground=acc, highlightthickness=1)
+            tk.Label(t, text=msg, bg="#0d141b", fg=TEXT, font=("Segoe UI", 10, "bold"), wraplength=520, justify="center").pack(padx=20, pady=11)
+            t.place(relx=0.5, rely=0.9, anchor="center")
+            t.lift()
+            self._toast = t
+            self._toast_job = self.after(2600, self._toast_hide)
+        except Exception:
+            pass
+
+    def _toast_hide(self):
+        self._toast_job = None
+        try:
+            if getattr(self, "_toast", None) is not None and self._toast.winfo_exists():
+                self._toast.destroy()
+        except Exception:
+            pass
+        self._toast = None
+
+    def _modal_card(self, title, msg, kind):
+        try:
+            self._modal_close(silent=True)
+        except Exception:
+            pass
+        ov = tk.Frame(self, bg="#04070a")
+        ov.place(relx=0, rely=0, relwidth=1, relheight=1)
+        ov.lift()
+        self._modal = ov
+        card = tk.Frame(ov, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
+        card.place(relx=0.5, rely=0.42, anchor="center")
+        icons = {"info": ("\u2139", GOLD), "warn": ("\u26a0", "#e0a34e"), "error": ("\u2715", "#e06c5e"), "success": ("\u2713", "#3fae6a")}
+        glyph, col = icons.get(kind, icons["info"])
+        h = tk.Frame(card, bg=PANEL)
+        h.pack(fill="x", padx=20, pady=(18, 6))
+        tk.Label(h, text=glyph, bg=PANEL, fg=col, font=("Segoe UI", 16, "bold")).pack(side="left", padx=(0, 10))
+        tk.Label(h, text=title, bg=PANEL, fg=TEXT, font=("Segoe UI", 12, "bold"), wraplength=360, justify="left").pack(side="left")
+        tk.Label(card, text=msg, bg=PANEL, fg=MUTED, font=("Segoe UI", 10), wraplength=400, justify="left").pack(fill="x", padx=20, pady=(0, 14))
+        btns = tk.Frame(card, bg=PANEL)
+        btns.pack(fill="x", padx=20, pady=(0, 18))
+        return ov, card, btns
+
+    def alert_modal(self, title, msg, kind="info", ok_text="Tamam", on_ok=None):
+        try:
+            ov, card, btns = self._modal_card(title, msg, kind)
+            def _ok(e=None):
+                cb = on_ok
+                self._modal_close()
+                if callable(cb):
+                    cb()
+            b = tk.Button(btns, text=ok_text, command=_ok, bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=24, pady=9)
+            b.pack(side="right")
+            b.focus_set()
+            self.bind("<Escape>", lambda e: self._modal_close())
+            self.bind("<Return>", lambda e: _ok())
+        except Exception:
+            pass
+
+    def confirm_modal(self, title, msg, yes_text="Evet", no_text="Vazge\u00e7", on_yes=None):
+        try:
+            ov, card, btns = self._modal_card(title, msg, "warn")
+            def _yes(e=None):
+                cb = on_yes
+                self._modal_close()
+                if callable(cb):
+                    cb()
+            def _no(e=None):
+                self._modal_close()
+            tk.Button(btns, text=yes_text, command=_yes, bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=24, pady=9).pack(side="right")
+            tk.Button(btns, text=no_text, command=_no, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=18, pady=9).pack(side="right", padx=(0, 8))
+            self.bind("<Escape>", lambda e: _no())
+        except Exception:
+            pass
+
+    def _modal_close(self, silent=False):
+        try:
+            if getattr(self, "_modal", None) is not None:
+                try:
+                    if self._modal.winfo_exists():
+                        self._modal.destroy()
+                except Exception:
+                    pass
+            self._modal = None
+            if not silent:
+                try:
+                    for seq in ("<Return>",):
+                        try:
+                            self.unbind(seq)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                self._restore_escape()
+        except Exception:
+            pass
+
+    def _restore_escape(self):
+        try:
+            lb = getattr(self, "_lb_overlay", None)
+            if lb is not None and lb.winfo_exists():
+                self.bind("<Escape>", lambda e: self._lightbox_close())
+                return
+        except Exception:
+            pass
+        try:
+            cmp = getattr(self, "_cmp_overlay", None)
+            if cmp is not None and cmp.winfo_exists():
+                self.bind("<Escape>", lambda e: self._compare_close())
+                return
+        except Exception:
+            pass
+        try:
+            self.bind("<Escape>", lambda e: self.go_setup())
+        except Exception:
+            pass
 
     def gold_button(self, p, text, cmd, big=False):
         return tk.Button(p, text=text, command=cmd, bg=GOLD, fg="#11161a", activebackground=GOLD_HOVER, activeforeground="#11161a", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 12 if big else 10, "bold"), padx=18, pady=12 if big else 9)
@@ -411,23 +550,23 @@ class App(tk.Tk):
         if f: self.folder = Path(f); self.folder_var.set(str(self.folder))
 
     def start(self):
-        if not self.folder: messagebox.showwarning("Klasör gerekli", "Önce fotoğrafların bulunduğu klasörü seçin."); return
+        if not self.folder: self.alert_modal("Klasör gerekli", "Önce fotoğrafların bulunduğu klasörü seçin.", kind="warn"); return
         try: count = int(self.count_var.get())
-        except: messagebox.showwarning("Geçersiz sayı", "Normal fotoğraf sayısını doğru girin."); return
+        except: self.alert_modal("Geçersiz sayı", "Normal fotoğraf sayısını doğru girin.", kind="warn"); return
         album_name = self.output_name_var.get().strip()
         if getattr(self, "_album_placeholder", None) and album_name == self._album_placeholder: album_name = ""
-        if count < 1 or not album_name: messagebox.showwarning("Eksik bilgi", "Fotoğraf sayısı ve albüm adı boş olamaz."); return
+        if count < 1 or not album_name: self.alert_modal("Eksik bilgi", "Fotoğraf sayısı ve albüm adı boş olamaz.", kind="warn"); return
         photos = sorted([p for p in self.folder.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS], key=lambda p: p.name.lower())
         
         try:
             cover_count = int(self.cover_count_var.get()) if self.cover_var.get() else 0
             table_count = int(self.table_count_var.get()) if self.table_var.get() else 0
         except Exception:
-            messagebox.showwarning("Geçersiz sayı", "Kapak ve tablo adetlerini doğru girin."); return
+            self.alert_modal("Geçersiz sayı", "Kapak ve tablo adetlerini doğru girin.", kind="warn"); return
 
         needed = count + cover_count + table_count
-        if not photos: messagebox.showerror("Fotoğraf bulunamadı", "Klasörde desteklenen fotoğraf bulunamadı."); return
-        if len(photos) < needed: messagebox.showwarning("Fotoğraf sayısı yetersiz", f"Klasörde {len(photos)} fotoğraf var; en az {needed} fotoğraf gerekiyor."); return
+        if not photos: self.alert_modal("Fotoğraf bulunamadı", "Klasörde desteklenen fotoğraf bulunamadı.", kind="error"); return
+        if len(photos) < needed: self.alert_modal("Fotoğraf sayısı yetersiz", f"Klasörde {len(photos)} fotoğraf var; en az {needed} fotoğraf gerekiyor.", kind="warn"); return
         
         self.photos = photos; self.normal_count = count; self.cover_required = self.cover_var.get(); self.table_required = self.table_var.get()
         self.output_dir = self.folder / album_name; self.selected.clear(); self.normal_selection.clear(); self.cover = None; self.table = None; self.mode = "normal"
@@ -564,6 +703,136 @@ class App(tk.Tk):
                 pass
         self._viewer_job = self.after(120, self._viewer_draw)
 
+    # ---- Hizli resim motoru: bellek LRU + disk onbellek + tembel yukleme ----
+    _SRC_MAX = 560
+    _SRC_MEM = 32
+    _VIEW_MEM = 10
+
+    def _thumb_dir(self):
+        try:
+            d = Path(tempfile.gettempdir()) / "fotosecim_thumbs"
+            d.mkdir(parents=True, exist_ok=True)
+            return d
+        except Exception:
+            return None
+
+    def _src_image(self, path):
+        try:
+            mem = self._src_mem
+        except AttributeError:
+            mem = self._src_mem = OrderedDict()
+        key = str(path)
+        hit = mem.get(key)
+        if hit is not None:
+            try:
+                mem.move_to_end(key)
+                return hit.copy()
+            except Exception:
+                pass
+        img = None
+        try:
+            d = self._thumb_dir()
+            cf = None
+            if d is not None:
+                try:
+                    st = Path(path).stat()
+                    ck = hashlib.md5(f"{path}|{st.st_size}|{int(st.st_mtime)}".encode("utf-8", "ignore")).hexdigest()
+                except Exception:
+                    ck = hashlib.md5(str(path).encode("utf-8", "ignore")).hexdigest()
+                cf = d / (ck + ".jpg")
+                if cf.exists():
+                    try:
+                        tmp = Image.open(cf)
+                        tmp.load()
+                        img = tmp.convert("RGB")
+                        tmp.close()
+                    except Exception:
+                        try:
+                            cf.unlink()
+                        except Exception:
+                            pass
+                        img = None
+            if img is None:
+                with Image.open(path) as im:
+                    im.load()
+                    img = im.convert("RGB")
+                    img.thumbnail((self._SRC_MAX, self._SRC_MAX), Image.Resampling.BILINEAR)
+                    if cf is not None:
+                        try:
+                            img.save(cf, "JPEG", quality=80)
+                        except Exception:
+                            pass
+        except Exception:
+            img = None
+        if img is None:
+            return None
+        try:
+            mem[key] = img.copy()
+            while len(mem) > self._SRC_MEM:
+                mem.popitem(last=False)
+        except Exception:
+            pass
+        return img
+
+    def _decode_fit(self, path, box):
+        try:
+            with Image.open(path) as im:
+                try:
+                    im.draft("RGB", (max(1, box[0]), max(1, box[1])))
+                except Exception:
+                    pass
+                im.load()
+                pic = im.convert("RGB")
+                pic.thumbnail((max(1, box[0]), max(1, box[1])), Image.Resampling.BILINEAR)
+                return pic
+        except Exception:
+            return None
+
+    def _photo_ref(self, path, box):
+        try:
+            mem = self._view_mem
+        except AttributeError:
+            mem = self._view_mem = OrderedDict()
+        key = (str(path), max(1, box[0] // 16), max(1, box[1] // 16))
+        hit = mem.get(key)
+        if hit is not None:
+            try:
+                mem.move_to_end(key)
+                return hit
+            except Exception:
+                pass
+        pic = None
+        if max(box) <= self._SRC_MAX + 64:
+            pic = self._src_image(path)
+            if pic is not None:
+                pic.thumbnail((max(1, box[0]), max(1, box[1])), Image.Resampling.BILINEAR)
+        if pic is None:
+            pic = self._decode_fit(path, box)
+        if pic is None:
+            return None
+        try:
+            ref = ImageTk.PhotoImage(pic)
+        except Exception:
+            return None
+        try:
+            mem[key] = ref
+            while len(mem) > self._VIEW_MEM:
+                mem.popitem(last=False)
+        except Exception:
+            pass
+        return ref
+
+    def _preload_neighbors(self):
+        try:
+            total = len(getattr(self, "photos", []))
+            cur = getattr(self, "view_index", 0)
+            for step in (1, -1, 2, -2):
+                j = cur + step
+                if 0 <= j < total:
+                    self._src_image(self.photos[j])
+        except Exception:
+            pass
+
     def _viewer_draw(self):
         self._viewer_job = None
         if not hasattr(self, "viewer_label") or not self.viewer_label.winfo_exists():
@@ -576,42 +845,106 @@ class App(tk.Tk):
             if w < 50 or h < 50:
                 return
             path = self.photos[self.view_index]
-            with Image.open(path) as im:
-                im = im.convert("RGB")
-                im.thumbnail((max(100, w - 20), max(100, h - 10)), Image.Resampling.LANCZOS)
-                self._viewer_ref = ImageTk.PhotoImage(im.copy())
-                self.viewer_label.configure(image=self._viewer_ref, text="")
+            ref = self._photo_ref(path, (max(100, w - 20), max(100, h - 10)))
+            if ref is None:
+                raise RuntimeError("decode")
+            self._viewer_ref = ref
+            self.viewer_label.configure(image=self._viewer_ref, text="")
+            self.after_idle(self._preload_neighbors)
         except Exception:
             try:
-                self.viewer_label.configure(text="\u00d6nizleme a\u00e7\u0131lamad\u0131", image="")
+                self.viewer_label.configure(text="Önizleme açılamadı", image="")
             except Exception:
                 pass
 
     def _build_strip(self):
+        try:
+            if getattr(self, "_strip_job", None) is not None:
+                try:
+                    self.after_cancel(self._strip_job)
+                except Exception:
+                    pass
+                self._strip_job = None
+        except Exception:
+            pass
+        try:
+            self._strip_gen = getattr(self, "_strip_gen", 0) + 1
+        except Exception:
+            self._strip_gen = 1
         for w in self.strip_inner.winfo_children():
             w.destroy()
         self._thumb_refs = {}
         self._thumb_labels = {}
+        total = len(getattr(self, "photos", []))
+        cur = max(0, min(getattr(self, "view_index", 0), max(0, total - 1)))
+        order = []
+        if total:
+            order.append(cur)
+            k = 1
+            while len(order) < total:
+                a, b = cur - k, cur + k
+                if a >= 0:
+                    order.append(a)
+                if b < total:
+                    order.append(b)
+                k += 1
+        self._strip_queue = order
         for i, path in enumerate(self.photos):
             cell = tk.Frame(self.strip_inner, bg="#0c1116", highlightbackground=LINE, highlightthickness=1, cursor="hand2")
             cell.pack(side="left", padx=4)
-            lab = tk.Label(cell, bg="#0c1116", fg=MUTED, font=("Segoe UI", 7), cursor="hand2")
+            lab = tk.Label(cell, text="...", bg="#0c1116", fg=MUTED, font=("Segoe UI", 7), width=14, height=5, cursor="hand2")
             lab.pack(padx=3, pady=3)
             lab.bind("<Button-1>", lambda e, idx=i: self.gallery_show(idx))
             cell.bind("<Button-1>", lambda e, idx=i: self.gallery_show(idx))
             self._thumb_labels[path] = (cell, lab)
-            try:
-                with Image.open(path) as im:
-                    im = im.convert("RGB")
-                    im.thumbnail((104, 62), Image.Resampling.LANCZOS)
+        self.after(50, self._strip_refresh)
+        self._strip_job = self.after(30, lambda g=self._strip_gen: self._strip_pump(g))
+
+    def _strip_pump(self, gen):
+        self._strip_job = None
+        try:
+            if gen != getattr(self, "_strip_gen", -1):
+                return
+            if not hasattr(self, "strip_inner") or not self.strip_inner.winfo_exists():
+                return
+            q = getattr(self, "_strip_queue", [])
+            for _ in range(6):
+                if not q:
+                    break
+                i = q.pop(0)
+                try:
+                    path = self.photos[i]
+                except Exception:
+                    continue
+                pair = self._thumb_labels.get(path)
+                if not pair:
+                    continue
+                cell, lab = pair
+                try:
+                    if not lab.winfo_exists():
+                        continue
+                except Exception:
+                    continue
+                try:
+                    base = self._src_image(path)
+                    if base is None:
+                        continue
+                    base.thumbnail((104, 62), Image.Resampling.BILINEAR)
                     bg = Image.new("RGB", (104, 62), "#0c1116")
-                    bg.paste(im, ((104 - im.width) // 2, (62 - im.height) // 2))
+                    bg.paste(base, ((104 - base.width) // 2, (62 - base.height) // 2))
                     ref = ImageTk.PhotoImage(bg)
                     self._thumb_refs[path] = ref
-                    lab.configure(image=ref)
+                    lab.configure(image=ref, text="", width=104, height=62)
+                except Exception:
+                    pass
+            try:
+                self._strip_refresh()
             except Exception:
-                lab.configure(text="...")
-        self.after(50, self._strip_refresh)
+                pass
+            if q:
+                self._strip_job = self.after(15, lambda: self._strip_pump(gen))
+        except Exception:
+            pass
 
     def _strip_refresh(self):
         try:
@@ -807,23 +1140,20 @@ class App(tk.Tk):
                 w = max(80, col["img"].winfo_width() or 400)
                 h = max(80, col["img"].winfo_height() or 400)
                 try:
-                    with Image.open(path) as im:
-                        im = im.convert("RGB")
-                        im.thumbnail((w - 10, h - 10), Image.Resampling.LANCZOS)
-                        bg = Image.new("RGB", (max(10, w - 10), max(10, h - 10)), "#0c1116")
-                        bg.paste(im, ((bg.width - im.width) // 2, (bg.height - im.height) // 2))
-                        ref = ImageTk.PhotoImage(bg)
-                        self._cmp_refs[c] = ref
-                        col["img"].configure(image=ref, text="")
+                    ref = self._photo_ref(path, (max(10, w - 10), max(10, h - 10)))
+                    if ref is None:
+                        raise RuntimeError("decode")
+                    self._cmp_refs[c] = ref
+                    col["img"].configure(image=ref, text="")
                 except Exception:
-                    col["img"].configure(text="A\u00e7\u0131lamad\u0131", image="")
+                    col["img"].configure(text="Açılamadı", image="")
                 try:
-                    col["cap"].configure(text=f"{idx + 1} / {len(self.photos)}  \u2022  {path.name}")
+                    col["cap"].configure(text=f"{idx + 1} / {len(self.photos)}  •  {path.name}")
                     if path in self.selected:
-                        col["sel"].configure(text="\u2713  Se\u00e7ildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
+                        col["sel"].configure(text="✓  Seçildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
                         col["frame"].configure(highlightbackground="#3fae6a", highlightthickness=2)
                     else:
-                        col["sel"].configure(text="\u2665  Se\u00e7", bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER)
+                        col["sel"].configure(text="♥  Seç", bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER)
                         if idx == getattr(self, "view_index", -1):
                             col["frame"].configure(highlightbackground=GOLD, highlightthickness=2)
                         else:
@@ -890,7 +1220,7 @@ class App(tk.Tk):
             elif len(self.selected) < self.normal_count:
                 self.selected.add(path)
             else:
-                messagebox.showinfo("Limit doldu", f"En fazla {self.normal_count} normal foto\u011fraf se\u00e7ebilirsiniz.")
+                self.toast(f"En fazla {self.normal_count} fotoğraf seçebilirsin", kind="warn")
                 return
         else:
             self.selected = {path}
@@ -963,18 +1293,18 @@ class App(tk.Tk):
 
     def next_step(self):
         if self.mode == "normal":
-            if len(self.selected) != self.normal_count: messagebox.showwarning("Seçim tamamlanmadı", f"Tam olarak {self.normal_count} normal fotoğraf seçmelisiniz."); return
+            if len(self.selected) != self.normal_count: self.toast(f"Tam olarak {self.normal_count} fotoğraf seçmelisin", kind="warn"); return
             self.normal_selection = set(self.selected)
             if self.cover_required: self.mode = "cover"; self.selected.clear(); self.view_index = 0; self.show_cover_mode()
             elif self.table_required: self.mode = "table"; self.selected.clear(); self.view_index = 0; self._selection_refresh()
             else: self.finish()
         elif self.mode == "cover":
-            if len(self.selected) != 1: messagebox.showwarning("Kapak seçilmedi", "Lütfen 1 adet kapak fotoğrafı seçin."); return
+            if len(self.selected) != 1: self.toast("Kapak için 1 fotoğraf seç", kind="warn"); return
             self.cover = next(iter(self.selected))
             if self.table_required: self.mode = "table"; self.selected.clear(); self.view_index = 0; self._selection_refresh()
             else: self.finish()
         elif self.mode == "table":
-            if len(self.selected) != 1: messagebox.showwarning("Tablo seçilmedi", "Lütfen 1 adet tablo fotoğrafı seçin."); return
+            if len(self.selected) != 1: self.toast("Tablo için 1 fotoğraf seç", kind="warn"); return
             self.table = next(iter(self.selected)); self.finish()
 
     def _selection_refresh(self):
@@ -1091,28 +1421,52 @@ class App(tk.Tk):
             h = max(100, cv.winfo_height())
             zoom = max(0.2, min(4.0, getattr(self, "_lb_zoom", 1.0)))
             try:
-                with Image.open(path) as im:
-                    im = im.convert("RGB")
-                    im.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
-                    tw, th = max(1, int(w * zoom)), max(1, int(h * zoom))
-                    fit = im.copy()
-                    fit.thumbnail((tw, th), Image.Resampling.LANCZOS)
-                    ref = ImageTk.PhotoImage(fit)
-                    self._lb_img_ref = ref
-                    cv.delete("lb")
-                    cv.create_image(max(w // 2, fit.width // 2), max(h // 2, fit.height // 2), image=ref, anchor="center", tags="lb")
-                    cv.configure(scrollregion=(-w, -h, w * 2, h * 2))
+                try:
+                    lbmem = self._lb_mem
+                except AttributeError:
+                    lbmem = self._lb_mem = OrderedDict()
+                bkey = str(path)
+                base = lbmem.get(bkey)
+                if base is not None:
+                    try:
+                        lbmem.move_to_end(bkey)
+                        base = base.copy()
+                    except Exception:
+                        pass
+                if base is None:
+                    with Image.open(path) as im:
+                        try:
+                            im.draft("RGB", (1600, 1600))
+                        except Exception:
+                            pass
+                        im.load()
+                        base = im.convert("RGB")
+                        base.thumbnail((1600, 1600), Image.Resampling.BILINEAR)
+                    try:
+                        lbmem[bkey] = base.copy()
+                        while len(lbmem) > 3:
+                            lbmem.popitem(last=False)
+                    except Exception:
+                        pass
+                tw, th = max(1, int(w * zoom)), max(1, int(h * zoom))
+                fit = base.copy()
+                fit.thumbnail((tw, th), Image.Resampling.BILINEAR)
+                ref = ImageTk.PhotoImage(fit)
+                self._lb_img_ref = ref
+                cv.delete("lb")
+                cv.create_image(max(w // 2, fit.width // 2), max(h // 2, fit.height // 2), image=ref, anchor="center", tags="lb")
+                cv.configure(scrollregion=(-w, -h, w * 2, h * 2))
             except Exception:
                 cv.delete("lb")
-                cv.create_text(w // 2, h // 2, text="A\u00e7\u0131lamad\u0131", fill="#889198", tags="lb")
+                cv.create_text(w // 2, h // 2, text="Açılamadı", fill="#889198", tags="lb")
             try:
                 total = len(self.photos)
                 idx = getattr(self, "view_index", 0)
-                self._lb_title.configure(text=f"{idx + 1} / {total}  \u2022  {path.name}  \u2022  %{int(zoom * 100)}")
+                self._lb_title.configure(text=f"{idx + 1} / {total}  •  {path.name}  •  %{int(zoom * 100)}")
                 if path in self.selected:
-                    self._lb_sel.configure(text="\u2713  Se\u00e7ildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
+                    self._lb_sel.configure(text="✓  Seçildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
                 else:
-                    self._lb_sel.configure(text="\u2665  Se\u00e7", bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER)
+                    self._lb_sel.configure(text="♥  Seç", bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER)
             except Exception:
                 pass
         except Exception:
@@ -1211,20 +1565,40 @@ class App(tk.Tk):
     def go_setup(self):
         self._gallery_unbind()
         if self.mode != "normal" and (self.normal_selection or self.selected):
-            if not messagebox.askyesno("Ayarlar", "Ayarlar ekranına dönerseniz mevcut seçimler silinecek. Devam edilsin mi?"): return
+            self.confirm_modal("Ayarlara dönülsün mü?", "Mevcut seçimler silinecek. Devam edilsin mi?",
+                               yes_text="Devam Et", no_text="Vazgeç", on_yes=self._build_setup)
+            return
         self._build_setup()
 
     def finish(self):
-        if not self.normal_selection: messagebox.showerror("Hata", "Normal fotoğraf seçimi bulunamadı."); return
+        if not self.normal_selection:
+            self.alert_modal("Hata", "Normal fotoğraf seçimi bulunamadı.", kind="error")
+            return
         out = self.output_dir
-        if out.exists() and not messagebox.askyesno("Klasör zaten var", f"'{out.name}' klasörü zaten var. İçine kopyalansın mı?"): return
+        if out.exists():
+            self.confirm_modal("Klasör zaten var", f"'{out.name}' klasörü zaten var. İçine kopyalansın mı?",
+                               yes_text="Kopyala", no_text="Vazgeç", on_yes=self._do_finish)
+            return
+        self._do_finish()
+
+    def _do_finish(self):
+        out = self.output_dir
         try:
+            total = len(self.normal_selection)
+            try:
+                self.toast(f"{total} fotoğraf kopyalanıyor...", kind="info")
+            except Exception:
+                pass
+            self.update_idletasks()
             out.mkdir(parents=True, exist_ok=True)
             for i, src in enumerate(sorted(self.normal_selection, key=lambda p: p.name.lower()), 1):
                 shutil.copy2(src, out / f"{i:03d}{src.suffix.lower()}")
             if self.cover: shutil.copy2(self.cover, out / f"ALBUM_KAPAK{self.cover.suffix.lower()}")
             if self.table: shutil.copy2(self.table, out / f"TABLO{self.table.suffix.lower()}")
-        except Exception as e: messagebox.showerror("Kopyalama hatası", str(e)); return
-        messagebox.showinfo("Tamamlandı", f"Seçim tamamlandı!\n\nNormal: {len(self.normal_selection)}\nKapak: {'Evet' if self.cover else 'Hayır'}\nTablo: {'Evet' if self.table else 'Hayır'}\n\n{out}"); self._build_setup()
+        except Exception as e:
+            self.alert_modal("Kopyalama hatası", str(e), kind="error")
+            return
+        self.alert_modal("Tamamlandı", f"Seçim tamamlandı!\n\nNormal: {len(self.normal_selection)}\nKapak: {'Evet' if self.cover else 'Hayır'}\nTablo: {'Evet' if self.table else 'Hayır'}\n\n{out}",
+                         kind="success", ok_text="Tamam", on_ok=self._build_setup)
 
 if __name__ == "__main__": App().mainloop()
