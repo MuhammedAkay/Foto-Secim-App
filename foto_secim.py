@@ -512,8 +512,10 @@ class App(tk.Tk):
         self.tb_prev.pack(side="left", padx=5)
         self.tb_next = tk.Button(bar, text="Sonraki \u25b6", command=self.gallery_next, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
         self.tb_next.pack(side="left", padx=5)
-        self.tb_compare = tk.Button(bar, text="\u25a6 Kar\u015f\u0131la\u015ft\u0131r", command=self.gallery_compare, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_compare = tk.Button(bar, text="\u25a6 2\u2019li", command=lambda: self.gallery_compare(2), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
         self.tb_compare.pack(side="left", padx=5)
+        self.tb_compare3 = tk.Button(bar, text="\u25a6 3\u2019l\u00fc", command=lambda: self.gallery_compare(3), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_compare3.pack(side="left", padx=5)
         self.tb_zoom = tk.Button(bar, text="\u26f6 B\u00fcy\u00fct", command=lambda: self.open_photo(self.photos[self.view_index]), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
         self.tb_zoom.pack(side="left", padx=5)
         tk.Label(bar, text="\u2190 \u2192 gez \u2022 Space se\u00e7 \u2022 F b\u00fcy\u00fct", bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).pack(side="left", padx=(12, 0))
@@ -659,8 +661,221 @@ class App(tk.Tk):
             return
         self.toggle(self.photos[self.view_index])
 
-    def gallery_compare(self):
-        messagebox.showinfo("Kar\u015f\u0131la\u015ft\u0131r", "Kar\u015f\u0131la\u015ft\u0131rma ekran\u0131 sonraki ad\u0131mda eklenecek. \u015eimdilik galeriden se\u00e7ime devam edebilirsiniz.")
+    def gallery_compare(self, n=2):
+        self._compare_open(n)
+
+    def _compare_open(self, n=2):
+        if not getattr(self, "photos", None):
+            return
+        try:
+            if hasattr(self, "_cmp_overlay") and self._cmp_overlay is not None and self._cmp_overlay.winfo_exists():
+                self._compare_close()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "_lb_overlay") and self._lb_overlay is not None and self._lb_overlay.winfo_exists():
+                self._lightbox_close()
+        except Exception:
+            pass
+        n = 3 if int(n) == 3 else 2
+        total = len(self.photos)
+        base = getattr(self, "view_index", 0)
+        idxs = []
+        for k in range(n):
+            idxs.append(max(0, min(base + k, total - 1)))
+        if n == 2 and total > 1 and idxs[0] == idxs[1]:
+            idxs[1] = min(total - 1, idxs[0] + 1) if idxs[0] == 0 else idxs[0] - 1
+        if n == 3:
+            seen = set()
+            fixed = []
+            for i in idxs:
+                while i in seen and len(seen) < total:
+                    i = (i + 1) % total
+                seen.add(i)
+                fixed.append(i)
+            idxs = fixed
+        self._cmp_n = n
+        self._cmp_idxs = idxs
+        self._cmp_refs = {}
+        self._cmp_job = None
+
+        ov = tk.Frame(self, bg="#05080b", highlightbackground=GOLD, highlightthickness=1)
+        ov.place(relx=0, rely=0, relwidth=1, relheight=1)
+        ov.lift()
+        self._cmp_overlay = ov
+
+        top = tk.Frame(ov, bg="#0b1014")
+        top.pack(fill="x", padx=14, pady=(12, 6))
+        tk.Label(top, text="Kar\u015f\u0131la\u015ft\u0131r", bg="#0b1014", fg=GOLD, font=("Segoe UI", 14, "bold")).pack(side="left")
+        tk.Label(top, text="yan yana incele, be\u011fendiklerini se\u00e7", bg="#0b1014", fg=MUTED, font=("Segoe UI", 9)).pack(side="left", padx=(10, 0))
+        tk.Button(top, text="\u2715 Kapat  (Esc)", command=self._compare_close, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right")
+        self._cmp_btn3 = tk.Button(top, text="3\u2019l\u00fc", command=lambda: self._compare_set_n(3), relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=16, pady=7)
+        self._cmp_btn3.pack(side="right", padx=6)
+        self._cmp_btn2 = tk.Button(top, text="2\u2019li", command=lambda: self._compare_set_n(2), relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=16, pady=7)
+        self._cmp_btn2.pack(side="right", padx=6)
+
+        body = tk.Frame(ov, bg="#05080b")
+        body.pack(fill="both", expand=True, padx=14, pady=6)
+        self._cmp_body = body
+        self._cmp_cols = []
+        for c in range(3):
+            col = tk.Frame(body, bg=PANEL, highlightbackground=LINE, highlightthickness=1)
+            img = tk.Label(col, bg="#0c1116", fg=MUTED, font=("Segoe UI", 10))
+            img.pack(fill="both", expand=True, padx=8, pady=(8, 4))
+            img.bind("<Double-Button-1>", lambda e, cc=c: self._lightbox_open(self.photos[self._cmp_idxs[cc]]))
+            nav = tk.Frame(col, bg=PANEL)
+            nav.pack(fill="x", padx=8, pady=2)
+            bp = tk.Button(nav, text="\u2039", font=("Segoe UI", 16, "bold"), bg=PANEL2, fg=GOLD, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", width=3, command=lambda cc=c: self._compare_nav(cc, -1))
+            bp.pack(side="left")
+            bn = tk.Button(nav, text="\u203a", font=("Segoe UI", 16, "bold"), bg=PANEL2, fg=GOLD, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", width=3, command=lambda cc=c: self._compare_nav(cc, 1))
+            bn.pack(side="right")
+            cap = tk.Label(nav, text="", bg=PANEL, fg="#c9d1d7", font=("Segoe UI", 8))
+            cap.pack(side="left", expand=True)
+            sel = tk.Button(col, text="", font=("Segoe UI", 10, "bold"), relief="flat", bd=0, cursor="hand2", padx=10, pady=7, command=lambda cc=c: self._compare_toggle(cc))
+            sel.pack(fill="x", padx=8, pady=(2, 8))
+            self._cmp_cols.append({"frame": col, "img": img, "cap": cap, "sel": sel})
+        for c in range(3):
+            body.grid_columnconfigure(c, weight=1)
+        body.rowconfigure(0, weight=1)
+
+        hint = tk.Label(ov, text="Her kare ba\u011f\u0131ms\u0131z gezilir  \u2022  \u2039 \u203a ile de\u011fi\u015ftir  \u2022  1 / 2 / 3 ile se\u00e7  \u2022  \u00c7ift t\u0131k b\u00fcy\u00fct\u00fcr", bg="#05080b", fg=MUTED, font=("Segoe UI", 8))
+        hint.pack(pady=(0, 12))
+
+        ov.bind("<Configure>", lambda e: self._compare_schedule())
+        ov.focus_set()
+        self.bind("<Escape>", lambda e: self._compare_close())
+        for key, col in (("1", 0), ("2", 1), ("3", 2)):
+            self.bind(key, lambda e, cc=col: self._compare_toggle(cc))
+        self._compare_layout()
+        self._compare_schedule()
+
+    def _compare_set_n(self, n):
+        n = 3 if int(n) == 3 else 2
+        if n == getattr(self, "_cmp_n", 2):
+            return
+        total = len(self.photos)
+        base = self._cmp_idxs[0] if getattr(self, "_cmp_idxs", None) else getattr(self, "view_index", 0)
+        idxs = [max(0, min(base + k, total - 1)) for k in range(n)]
+        seen = set()
+        fixed = []
+        for i in idxs:
+            while i in seen and len(seen) < total:
+                i = (i + 1) % total
+            seen.add(i)
+            fixed.append(i)
+        self._cmp_n = n
+        self._cmp_idxs = fixed
+        self._compare_layout()
+        self._compare_schedule()
+
+    def _compare_layout(self):
+        try:
+            n = getattr(self, "_cmp_n", 2)
+            for c, col in enumerate(self._cmp_cols):
+                if c < n:
+                    col["frame"].grid(row=0, column=c, sticky="nsew", padx=6)
+                else:
+                    col["frame"].grid_forget()
+            for b, val in ((self._cmp_btn2, 2), (self._cmp_btn3, 3)):
+                on = (val == n)
+                b.configure(bg=(GOLD if on else PANEL2), fg=("#141a20" if on else TEXT), activebackground=(GOLD_HOVER if on else "#26343d"))
+        except Exception:
+            pass
+
+    def _compare_schedule(self):
+        try:
+            if getattr(self, "_cmp_job", None) is not None:
+                try:
+                    self.after_cancel(self._cmp_job)
+                except Exception:
+                    pass
+            self._cmp_job = self.after(100, self._compare_draw)
+        except Exception:
+            pass
+
+    def _compare_draw(self):
+        self._cmp_job = None
+        try:
+            if not hasattr(self, "_cmp_overlay") or not self._cmp_overlay.winfo_exists():
+                return
+            n = getattr(self, "_cmp_n", 2)
+            for c in range(n):
+                col = self._cmp_cols[c]
+                idx = max(0, min(self._cmp_idxs[c], len(self.photos) - 1))
+                self._cmp_idxs[c] = idx
+                path = self.photos[idx]
+                w = max(80, col["img"].winfo_width() or 400)
+                h = max(80, col["img"].winfo_height() or 400)
+                try:
+                    with Image.open(path) as im:
+                        im = im.convert("RGB")
+                        im.thumbnail((w - 10, h - 10), Image.Resampling.LANCZOS)
+                        bg = Image.new("RGB", (max(10, w - 10), max(10, h - 10)), "#0c1116")
+                        bg.paste(im, ((bg.width - im.width) // 2, (bg.height - im.height) // 2))
+                        ref = ImageTk.PhotoImage(bg)
+                        self._cmp_refs[c] = ref
+                        col["img"].configure(image=ref, text="")
+                except Exception:
+                    col["img"].configure(text="A\u00e7\u0131lamad\u0131", image="")
+                try:
+                    col["cap"].configure(text=f"{idx + 1} / {len(self.photos)}  \u2022  {path.name}")
+                    if path in self.selected:
+                        col["sel"].configure(text="\u2713  Se\u00e7ildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
+                        col["frame"].configure(highlightbackground="#3fae6a", highlightthickness=2)
+                    else:
+                        col["sel"].configure(text="\u2665  Se\u00e7", bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER)
+                        if idx == getattr(self, "view_index", -1):
+                            col["frame"].configure(highlightbackground=GOLD, highlightthickness=2)
+                        else:
+                            col["frame"].configure(highlightbackground=LINE, highlightthickness=1)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _compare_nav(self, col, step):
+        try:
+            total = len(self.photos)
+            self._cmp_idxs[col] = max(0, min(self._cmp_idxs[col] + step, total - 1))
+            self._compare_draw()
+        except Exception:
+            pass
+
+    def _compare_toggle(self, col):
+        try:
+            if col >= getattr(self, "_cmp_n", 2):
+                return
+            path = self.photos[self._cmp_idxs[col]]
+            self.toggle(path)
+            self._compare_draw()
+        except Exception:
+            pass
+
+    def _compare_close(self):
+        try:
+            if getattr(self, "_cmp_job", None) is not None:
+                try:
+                    self.after_cancel(self._cmp_job)
+                except Exception:
+                    pass
+                self._cmp_job = None
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "_cmp_overlay") and self._cmp_overlay is not None and self._cmp_overlay.winfo_exists():
+                self._cmp_overlay.destroy()
+        except Exception:
+            pass
+        self._cmp_overlay = None
+        try:
+            for key in ("1", "2", "3"):
+                try:
+                    self.unbind(key)
+                except Exception:
+                    pass
+            self.bind("<Escape>", lambda e: self.go_setup())
+        except Exception:
+            pass
 
     def reflow(self, width):
         return
@@ -770,10 +985,222 @@ class App(tk.Tk):
         self._selection_page()
 
     def open_photo(self, path):
-        try:
-            im = Image.open(path).convert("RGB"); im.thumbnail((1050, 700), Image.Resampling.LANCZOS); ref = ImageTk.PhotoImage(im.copy()); w = tk.Toplevel(self); w.title(path.name); w.configure(bg="#000"); tk.Label(w, image=ref, bg="#000").pack(padx=10, pady=10); w.image = ref
-        except Exception as e: messagebox.showerror("Fotoğraf açılamadı", str(e))
+        self._lightbox_open(path)
 
+    def _lightbox_open(self, path):
+        if not getattr(self, "photos", None):
+            return
+        try:
+            if path in self.photos:
+                self.view_index = self.photos.index(path)
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "_lb_overlay") and self._lb_overlay is not None and self._lb_overlay.winfo_exists():
+                self._lightbox_close()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "_cmp_overlay") and self._cmp_overlay is not None and self._cmp_overlay.winfo_exists():
+                pass
+        except Exception:
+            pass
+        self._lb_zoom = 1.0
+        self._lb_job = None
+        self._lb_img_ref = None
+
+        ov = tk.Frame(self, bg="#04070a")
+        ov.place(relx=0, rely=0, relwidth=1, relheight=1)
+        ov.lift()
+        self._lb_overlay = ov
+
+        top = tk.Frame(ov, bg="#0b1014")
+        top.pack(fill="x", padx=14, pady=(12, 6))
+        self._lb_title = tk.Label(top, text="", bg="#0b1014", fg=TEXT, font=("Segoe UI", 11, "bold"))
+        self._lb_title.pack(side="left")
+        tk.Button(top, text="\u2715 Kapat  (Esc)", command=self._lightbox_close, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right")
+        self._lb_sel = tk.Button(top, text="", command=self._lightbox_toggle, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=16, pady=7)
+        self._lb_sel.pack(side="right", padx=6)
+        tk.Button(top, text="S\u0131\u011fd\u0131r", command=self._lightbox_fit, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right", padx=6)
+        tk.Button(top, text="\u2212", command=lambda: self._lightbox_zoom(0.8), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
+        tk.Button(top, text="+", command=lambda: self._lightbox_zoom(1.25), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
+
+        mid = tk.Frame(ov, bg="#04070a")
+        mid.pack(fill="both", expand=True, padx=14)
+        mid.columnconfigure(1, weight=1)
+        mid.rowconfigure(0, weight=1)
+        tk.Button(mid, text="\u2039", command=lambda: self._lightbox_nav(-1), bg="#0d141b", fg=GOLD, activebackground="#1a2530", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 30, "bold"), width=2).grid(row=0, column=0, sticky="ns", padx=(0, 8))
+        tk.Button(mid, text="\u203a", command=lambda: self._lightbox_nav(1), bg="#0d141b", fg=GOLD, activebackground="#1a2530", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 30, "bold"), width=2).grid(row=0, column=2, sticky="ns", padx=(8, 0))
+
+        cvwrap = tk.Frame(mid, bg="#04070a")
+        cvwrap.grid(row=0, column=1, sticky="nsew")
+        cvwrap.rowconfigure(0, weight=1)
+        cvwrap.columnconfigure(0, weight=1)
+        cv = tk.Canvas(cvwrap, bg="#04070a", highlightthickness=0)
+        cv.grid(row=0, column=0, sticky="nsew")
+        self._lb_canvas = cv
+        cv.bind("<Configure>", lambda e: self._lightbox_schedule())
+        cv.bind("<Button-1>", lambda e: cv.scan_mark(e.x, e.y))
+        cv.bind("<B1-Motion>", lambda e: cv.scan_dragto(e.x, e.y, gain=1))
+        cv.bind("<MouseWheel>", self._lightbox_wheel)
+        cv.bind("<Button-4>", lambda e: self._lightbox_zoom(1.15))
+        cv.bind("<Button-5>", lambda e: self._lightbox_zoom(0.87))
+
+        hint = tk.Label(ov, text="S\u00fcr\u00fckle: kayd\u0131r  \u2022  Tekerlek / + / \u2212: zum  \u2022  \u2190 \u2192: gez  \u2022  Space: se\u00e7  \u2022  \u00c7ift t\u0131k: kapat", bg="#04070a", fg=MUTED, font=("Segoe UI", 8))
+        hint.pack(pady=(6, 12))
+        cv.bind("<Double-Button-1>", lambda e: self._lightbox_close())
+
+        ov.focus_set()
+        self.bind("<Escape>", lambda e: self._lightbox_close())
+        self.bind("<Left>", lambda e: self._lightbox_nav(-1))
+        self.bind("<Right>", lambda e: self._lightbox_nav(1))
+        self.bind("<space>", lambda e: self._lightbox_toggle())
+        self.bind("<plus>", lambda e: self._lightbox_zoom(1.25))
+        self.bind("<minus>", lambda e: self._lightbox_zoom(0.8))
+        self.bind("<f>", lambda e: self._lightbox_close())
+        self.bind("<F>", lambda e: self._lightbox_close())
+        self._lightbox_schedule()
+
+    def _lightbox_path(self):
+        try:
+            return self.photos[getattr(self, "view_index", 0)]
+        except Exception:
+            return None
+
+    def _lightbox_schedule(self):
+        try:
+            if getattr(self, "_lb_job", None) is not None:
+                try:
+                    self.after_cancel(self._lb_job)
+                except Exception:
+                    pass
+            self._lb_job = self.after(80, self._lightbox_draw)
+        except Exception:
+            pass
+
+    def _lightbox_draw(self):
+        self._lb_job = None
+        try:
+            if not hasattr(self, "_lb_canvas") or not self._lb_canvas.winfo_exists():
+                return
+            path = self._lightbox_path()
+            if path is None:
+                return
+            cv = self._lb_canvas
+            w = max(100, cv.winfo_width())
+            h = max(100, cv.winfo_height())
+            zoom = max(0.2, min(4.0, getattr(self, "_lb_zoom", 1.0)))
+            try:
+                with Image.open(path) as im:
+                    im = im.convert("RGB")
+                    im.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+                    tw, th = max(1, int(w * zoom)), max(1, int(h * zoom))
+                    fit = im.copy()
+                    fit.thumbnail((tw, th), Image.Resampling.LANCZOS)
+                    ref = ImageTk.PhotoImage(fit)
+                    self._lb_img_ref = ref
+                    cv.delete("lb")
+                    cv.create_image(max(w // 2, fit.width // 2), max(h // 2, fit.height // 2), image=ref, anchor="center", tags="lb")
+                    cv.configure(scrollregion=(-w, -h, w * 2, h * 2))
+            except Exception:
+                cv.delete("lb")
+                cv.create_text(w // 2, h // 2, text="A\u00e7\u0131lamad\u0131", fill="#889198", tags="lb")
+            try:
+                total = len(self.photos)
+                idx = getattr(self, "view_index", 0)
+                self._lb_title.configure(text=f"{idx + 1} / {total}  \u2022  {path.name}  \u2022  %{int(zoom * 100)}")
+                if path in self.selected:
+                    self._lb_sel.configure(text="\u2713  Se\u00e7ildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
+                else:
+                    self._lb_sel.configure(text="\u2665  Se\u00e7", bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _lightbox_nav(self, step):
+        try:
+            total = len(self.photos)
+            self.view_index = max(0, min(getattr(self, "view_index", 0) + step, total - 1))
+            self._viewer_draw()
+            self._strip_refresh()
+            self._update()
+            self._lightbox_schedule()
+        except Exception:
+            pass
+
+    def _lightbox_toggle(self):
+        try:
+            path = self._lightbox_path()
+            if path is None:
+                return
+            self.toggle(path)
+            try:
+                self._lightbox_schedule()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _lightbox_zoom(self, factor):
+        try:
+            self._lb_zoom = max(0.2, min(4.0, getattr(self, "_lb_zoom", 1.0) * float(factor)))
+            self._lightbox_schedule()
+        except Exception:
+            pass
+
+    def _lightbox_fit(self):
+        try:
+            self._lb_zoom = 1.0
+            self._lightbox_schedule()
+        except Exception:
+            pass
+
+    def _lightbox_wheel(self, e=None):
+        try:
+            d = getattr(e, "delta", 0)
+            if d > 0:
+                self._lightbox_zoom(1.12)
+            elif d < 0:
+                self._lightbox_zoom(0.89)
+            else:
+                self._lightbox_zoom(1.12)
+        except Exception:
+            pass
+
+    def _lightbox_close(self):
+        try:
+            if getattr(self, "_lb_job", None) is not None:
+                try:
+                    self.after_cancel(self._lb_job)
+                except Exception:
+                    pass
+                self._lb_job = None
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "_lb_overlay") and self._lb_overlay is not None and self._lb_overlay.winfo_exists():
+                self._lb_overlay.destroy()
+        except Exception:
+            pass
+        self._lb_overlay = None
+        try:
+            for seq in ("<plus>", "<minus>"):
+                try:
+                    self.unbind(seq)
+                except Exception:
+                    pass
+            self.bind("<Left>", lambda e: self.gallery_prev())
+            self.bind("<Right>", lambda e: self.gallery_next())
+            self.bind("<Up>", lambda e: self.gallery_prev())
+            self.bind("<Down>", lambda e: self.gallery_next())
+            self.bind("<space>", lambda e: self.gallery_toggle_current())
+            self.bind("<Return>", lambda e: self.gallery_toggle_current())
+            self.bind("<f>", lambda e: self.open_photo(self.photos[self.view_index]))
+            self.bind("<F>", lambda e: self.open_photo(self.photos[self.view_index]))
+            self.bind("<Escape>", lambda e: self.go_setup())
+        except Exception:
+            pass
     def _gallery_unbind(self):
         for seq in ("<Left>", "<Right>", "<Up>", "<Down>", "<space>", "<Return>", "<f>", "<F>"):
             try:
