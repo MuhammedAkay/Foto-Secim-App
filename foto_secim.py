@@ -995,6 +995,12 @@ class App(tk.Tk):
         self.toggle(self.photos[self.view_index])
 
     def gallery_compare(self, n=2):
+        try:
+            if len(getattr(self, "photos", [])) < 2:
+                self.toast("Karşılaştırma için en az 2 fotoğraf gerek", kind="warn")
+                return
+        except Exception:
+            pass
         self._compare_open(n)
 
     def _compare_open(self, n=2):
@@ -1055,6 +1061,7 @@ class App(tk.Tk):
             col = tk.Frame(body, bg=PANEL, highlightbackground=LINE, highlightthickness=1)
             img = tk.Label(col, bg="#0c1116", fg=MUTED, font=("Segoe UI", 10))
             img.pack(fill="both", expand=True, padx=8, pady=(8, 4))
+            img.bind("<Configure>", lambda e: self._compare_schedule())
             img.bind("<Double-Button-1>", lambda e, cc=c: self._lightbox_open(self.photos[self._cmp_idxs[cc]]))
             nav = tk.Frame(col, bg=PANEL)
             nav.pack(fill="x", padx=8, pady=2)
@@ -1068,7 +1075,7 @@ class App(tk.Tk):
             sel.pack(fill="x", padx=8, pady=(2, 8))
             self._cmp_cols.append({"frame": col, "img": img, "cap": cap, "sel": sel})
         for c in range(3):
-            body.grid_columnconfigure(c, weight=1)
+            body.grid_columnconfigure(c, weight=1, uniform="cmp")
         body.rowconfigure(0, weight=1)
 
         hint = tk.Label(ov, text="Her kare ba\u011f\u0131ms\u0131z gezilir  \u2022  \u2039 \u203a ile de\u011fi\u015ftir  \u2022  1 / 2 / 3 ile se\u00e7  \u2022  \u00c7ift t\u0131k b\u00fcy\u00fct\u00fcr", bg="#05080b", fg=MUTED, font=("Segoe UI", 8))
@@ -1086,20 +1093,35 @@ class App(tk.Tk):
         n = 3 if int(n) == 3 else 2
         if n == getattr(self, "_cmp_n", 2):
             return
+        try:
+            self._cmp_refs = {}
+            mem = getattr(self, "_view_mem", None)
+            if mem is not None:
+                mem.clear()
+        except Exception:
+            pass
         total = len(self.photos)
+        n = max(2, min(n, total))
         base = self._cmp_idxs[0] if getattr(self, "_cmp_idxs", None) else getattr(self, "view_index", 0)
-        idxs = [max(0, min(base + k, total - 1)) for k in range(n)]
-        seen = set()
-        fixed = []
-        for i in idxs:
-            while i in seen and len(seen) < total:
-                i = (i + 1) % total
-            seen.add(i)
-            fixed.append(i)
+        idxs = []
+        k = 0
+        while len(idxs) < n and k < total * 2:
+            cand = (base + k) % total
+            if cand not in idxs:
+                idxs.append(cand)
+            k += 1
+        while len(idxs) < n:
+            idxs.append(base)
         self._cmp_n = n
-        self._cmp_idxs = fixed
+        self._cmp_idxs = idxs
         self._compare_layout()
+        try:
+            self._cmp_overlay.update_idletasks()
+        except Exception:
+            pass
+        self._compare_draw()
         self._compare_schedule()
+        self.after(250, self._compare_schedule)
 
     def _compare_layout(self):
         try:
@@ -1137,8 +1159,11 @@ class App(tk.Tk):
                 idx = max(0, min(self._cmp_idxs[c], len(self.photos) - 1))
                 self._cmp_idxs[c] = idx
                 path = self.photos[idx]
-                w = max(80, col["img"].winfo_width() or 400)
-                h = max(80, col["img"].winfo_height() or 400)
+                w = col["img"].winfo_width()
+                h = col["img"].winfo_height()
+                if w < 60 or h < 60:
+                    self._compare_schedule()
+                    continue
                 try:
                     ref = self._photo_ref(path, (max(10, w - 10), max(10, h - 10)))
                     if ref is None:
@@ -1372,6 +1397,7 @@ class App(tk.Tk):
         cv.bind("<Configure>", lambda e: self._lightbox_schedule())
         cv.bind("<Button-1>", lambda e: cv.scan_mark(e.x, e.y))
         cv.bind("<B1-Motion>", lambda e: cv.scan_dragto(e.x, e.y, gain=1))
+        cv.bind("<ButtonRelease-1>", lambda e: self._lightbox_clamp())
         cv.bind("<MouseWheel>", self._lightbox_wheel)
         cv.bind("<Button-4>", lambda e: self._lightbox_zoom(1.15))
         cv.bind("<Button-5>", lambda e: self._lightbox_zoom(0.87))
@@ -1380,6 +1406,7 @@ class App(tk.Tk):
         hint.pack(pady=(6, 12))
         cv.bind("<Double-Button-1>", lambda e: self._lightbox_close())
 
+        self._lb_center = True
         ov.focus_set()
         self.bind("<Escape>", lambda e: self._lightbox_close())
         self.bind("<Left>", lambda e: self._lightbox_nav(-1))
@@ -1419,7 +1446,8 @@ class App(tk.Tk):
             cv = self._lb_canvas
             w = max(100, cv.winfo_width())
             h = max(100, cv.winfo_height())
-            zoom = max(0.2, min(4.0, getattr(self, "_lb_zoom", 1.0)))
+            zoom = max(self._LB_MIN, min(self._LB_MAX, getattr(self, "_lb_zoom", 1.0)))
+            self._lb_zoom = zoom
             try:
                 try:
                     lbmem = self._lb_mem
@@ -1453,12 +1481,18 @@ class App(tk.Tk):
                 fit.thumbnail((tw, th), Image.Resampling.BILINEAR)
                 ref = ImageTk.PhotoImage(fit)
                 self._lb_img_ref = ref
+                self._lb_iw, self._lb_ih = fit.width, fit.height
                 cv.delete("lb")
-                cv.create_image(max(w // 2, fit.width // 2), max(h // 2, fit.height // 2), image=ref, anchor="center", tags="lb")
-                cv.configure(scrollregion=(-w, -h, w * 2, h * 2))
+                cv.create_image(0, 0, image=ref, anchor="center", tags="lb")
+                pad = 4
+                cv.configure(scrollregion=(-fit.width / 2 - pad, -fit.height / 2 - pad,
+                                           fit.width / 2 + pad, fit.height / 2 + pad))
+                if getattr(self, "_lb_center", True):
+                    self._lb_center = False
+                    self._lightbox_center()
             except Exception:
                 cv.delete("lb")
-                cv.create_text(w // 2, h // 2, text="Açılamadı", fill="#889198", tags="lb")
+                cv.create_text(0, 0, text="Açılamadı", fill="#889198", tags="lb")
             try:
                 total = len(self.photos)
                 idx = getattr(self, "view_index", 0)
@@ -1476,9 +1510,11 @@ class App(tk.Tk):
         try:
             total = len(self.photos)
             self.view_index = max(0, min(getattr(self, "view_index", 0) + step, total - 1))
+            self.viewer_label.configure(text="Yükleniyor...")
             self._viewer_draw()
             self._strip_refresh()
             self._update()
+            self._lb_center = True
             self._lightbox_schedule()
         except Exception:
             pass
@@ -1496,9 +1532,13 @@ class App(tk.Tk):
         except Exception:
             pass
 
+    _LB_MIN = 1.0
+    _LB_MAX = 8.0
+
     def _lightbox_zoom(self, factor):
         try:
-            self._lb_zoom = max(0.2, min(4.0, getattr(self, "_lb_zoom", 1.0) * float(factor)))
+            self._lb_zoom = max(self._LB_MIN, min(self._LB_MAX, getattr(self, "_lb_zoom", 1.0) * float(factor)))
+            self._lb_center = True
             self._lightbox_schedule()
         except Exception:
             pass
@@ -1506,7 +1546,45 @@ class App(tk.Tk):
     def _lightbox_fit(self):
         try:
             self._lb_zoom = 1.0
+            self._lb_center = True
             self._lightbox_schedule()
+        except Exception:
+            pass
+
+    def _lightbox_center(self):
+        try:
+            cv = self._lb_canvas
+            if not cv.winfo_exists():
+                return
+            sr = cv.cget("scrollregion")
+            if not sr:
+                return
+            x0, y0, x1, y1 = (float(v) for v in str(sr).split())
+            w = max(1, cv.winfo_width())
+            h = max(1, cv.winfo_height())
+            srw = max(1.0, x1 - x0)
+            srh = max(1.0, y1 - y0)
+            fx = (-x0 - w / 2) / srw if srw > w else 0.0
+            fy = (-y0 - h / 2) / srh if srh > h else 0.0
+            cv.xview_moveto(max(0.0, min(1.0, fx)))
+            cv.yview_moveto(max(0.0, min(1.0, fy)))
+        except Exception:
+            pass
+
+    def _lightbox_clamp(self):
+        try:
+            cv = self._lb_canvas
+            if not cv.winfo_exists():
+                return
+            box = cv.bbox("lb")
+            if not box:
+                return
+            x0 = cv.canvasx(0)
+            y0 = cv.canvasy(0)
+            x1 = cv.canvasx(max(1, cv.winfo_width()))
+            y1 = cv.canvasy(max(1, cv.winfo_height()))
+            if box[2] < x0 or box[0] > x1 or box[3] < y0 or box[1] > y1:
+                self._lightbox_center()
         except Exception:
             pass
 
