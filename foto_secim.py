@@ -130,6 +130,9 @@ class App(tk.Tk):
         self.geometry("1280x800")
         self.minsize(1080, 700)
         self.configure(bg=BG)
+        self._logo_cache = {}
+        self._apply_windows_dark_titlebar()
+        self._set_window_icon()
 
         self.folder = None; self.photos = []; self.cards = {}; self.selected = set()
         self.normal_selection = set(); self.cover = None; self.table = None; self.mode = "normal"
@@ -150,6 +153,56 @@ class App(tk.Tk):
         self._viewer_cache = OrderedDict()
         self._build_setup()
         self.bind("<Escape>", lambda e: self.go_setup())
+
+    def _load_logo(self, size):
+        try:
+            if size not in self._logo_cache:
+                logo_path = self._resource("assets", "logo.png")
+                if not logo_path.exists():
+                    return None
+                with Image.open(str(logo_path)) as im:
+                    im = im.convert("RGBA")
+                    im.thumbnail((size, size), Image.Resampling.LANCZOS)
+                    canv = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+                    canv.paste(im, ((size - im.width) // 2, (size - im.height) // 2), im)
+                    self._logo_cache[size] = ImageTk.PhotoImage(canv)
+            return self._logo_cache[size]
+        except Exception:
+            return None
+
+    def _set_window_icon(self):
+        try:
+            logo = self._load_logo(64)
+            if logo is not None:
+                self._win_icon = logo
+                self.iconphoto(True, logo)
+        except Exception:
+            pass
+
+    def _apply_windows_dark_titlebar(self):
+        if sys.platform != "win32":
+            return
+        try:
+            import ctypes
+            self.update_idletasks()
+            hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
+            if not hwnd:
+                return
+
+            def _dwm_attr(attr, val):
+                try:
+                    v = ctypes.c_int(val)
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attr, ctypes.byref(v), ctypes.sizeof(v))
+                except Exception:
+                    pass
+
+            _dwm_attr(20, 1)          # DWMWA_USE_IMMERSIVE_DARK_MODE (Win10 2004+ / Win11)
+            _dwm_attr(19, 1)          # eski Win10 icin geri donus
+            _dwm_attr(35, 0x0014100b) # DWMWA_CAPTION_COLOR ~ BG (#0b1014)
+            _dwm_attr(34, 0x00453a2d) # DWMWA_BORDER_COLOR ~ LINE (#2d3a45)
+            _dwm_attr(36, 0x00f3f1ee) # DWMWA_TEXT_COLOR ~ TEXT (#eef1f3)
+        except Exception:
+            pass
 
     def clear(self):
         for w in self.winfo_children(): w.destroy()
@@ -295,7 +348,15 @@ class App(tk.Tk):
     def _topbar(self, parent):
         bar = tk.Frame(parent, bg="#0b1014", height=48)
         bar.pack(fill="x"); bar.pack_propagate(False)
-        tk.Label(bar, text="📷  FotoSecim", bg="#0b1014", fg="#f0e0c4", font=("Segoe UI", 14, "bold")).pack(side="left", padx=22)
+        logo = self._load_logo(32)
+        if logo is not None:
+            tk.Label(bar, image=logo, bg="#0b1014").pack(side="left", padx=(22, 10))
+            title = "FotoSecim"
+            title_padx = 0
+        else:
+            title = "📷  FotoSecim"
+            title_padx = 22
+        tk.Label(bar, text=title, bg="#0b1014", fg="#f0e0c4", font=("Segoe UI", 14, "bold")).pack(side="left", padx=(title_padx, 0))
         tk.Label(bar, text="Düğün Fotoğraf Seçim Uygulaması", bg="#0b1014", fg="#7f8990", font=("Segoe UI", 9)).pack(side="left")
 
     def _resource(self, *parts):
@@ -506,12 +567,16 @@ class App(tk.Tk):
             cx = w // 2
             iy = 42
 
-            # Kamera ikonu - gold kontur
-            cv.create_rectangle(cx - 30, iy - 8, cx + 30, iy + 22, outline=GOLD, width=3, tags="hero")
-            cv.create_oval(cx - 12, iy - 1, cx + 12, iy + 21, outline=GOLD, width=3, tags="hero")
-            cv.create_oval(cx - 5, iy + 6, cx + 5, iy + 14, outline=GOLD, width=2, tags="hero")
-            cv.create_rectangle(cx - 14, iy - 17, cx + 5, iy - 8, outline=GOLD, width=3, tags="hero")
-            cv.create_oval(cx + 22, iy - 4, cx + 26, iy + 0, outline=GOLD, width=2, tags="hero")
+            hero_logo = self._load_logo(64)
+            if hero_logo is not None:
+                cv.create_image(cx, iy + 2, image=hero_logo, tags="hero")
+            else:
+                # Kamera ikonu - gold kontur (logo yoksa geri donus)
+                cv.create_rectangle(cx - 30, iy - 8, cx + 30, iy + 22, outline=GOLD, width=3, tags="hero")
+                cv.create_oval(cx - 12, iy - 1, cx + 12, iy + 21, outline=GOLD, width=3, tags="hero")
+                cv.create_oval(cx - 5, iy + 6, cx + 5, iy + 14, outline=GOLD, width=2, tags="hero")
+                cv.create_rectangle(cx - 14, iy - 17, cx + 5, iy - 8, outline=GOLD, width=3, tags="hero")
+                cv.create_oval(cx + 22, iy - 4, cx + 26, iy + 0, outline=GOLD, width=2, tags="hero")
 
             cv.create_text(cx - 6, iy + 52, text="Foto", anchor="e", fill="#f2f3f4", font=("Segoe UI", 30, "bold"), tags="hero")
             cv.create_text(cx - 2, iy + 52, text="Secim", anchor="w", fill=GOLD, font=("Segoe UI", 30, "bold"), tags="hero")
