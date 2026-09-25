@@ -1195,8 +1195,10 @@ class App(tk.Tk):
             for c, col in enumerate(self._cmp_cols):
                 if c < n:
                     col["frame"].grid(row=0, column=c, sticky="nsew", padx=6)
+                    self._cmp_body.grid_columnconfigure(c, weight=1, uniform="cmp")
                 else:
                     col["frame"].grid_forget()
+                    self._cmp_body.grid_columnconfigure(c, weight=0, uniform=f"cmp_off_{c}")
             for b, val in ((self._cmp_btn2, 2), (self._cmp_btn3, 3)):
                 on = (val == n)
                 b.configure(bg=(GOLD if on else PANEL2), fg=("#141a20" if on else TEXT), activebackground=(GOLD_HOVER if on else "#26343d"))
