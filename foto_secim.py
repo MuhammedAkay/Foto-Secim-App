@@ -1843,10 +1843,22 @@ class App(tk.Tk):
         if not self.normal_selection:
             self.alert_modal("Hata", "Normal fotoğraf seçimi bulunamadı.", kind="error")
             return
+        try:
+            album = self.output_dir.name
+        except Exception:
+            album = ""
+        summary = (f"Albüm: {album}\n\nNormal: {len(self.normal_selection)} fotoğraf\n"
+                   f"Kapak: {'Evet' if self.cover else 'Hayır'}\n"
+                   f"Tablo: {'Evet' if self.table else 'Hayır'}\n\n"
+                   f"Seçilen fotoğraflar albüm klasörüne kopyalanacak. Devam edilsin mi?")
+        self.confirm_modal("Seçim tamamlansın mı?", summary,
+                           yes_text="Seçimi Tamamla", no_text="Vazgeç", on_yes=self._finish_confirmed)
+
+    def _finish_confirmed(self):
         out = self.output_dir
         if out.exists():
             self.confirm_modal("Klasör zaten var", f"'{out.name}' klasörü zaten var. İçine kopyalansın mı?",
-                               yes_text="Kopyala", no_text="Vazgeç", on_yes=self._do_finish)
+                               yes_text="Devam Et", no_text="Vazgeç", on_yes=self._do_finish)
             return
         self._do_finish()
 
