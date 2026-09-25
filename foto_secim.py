@@ -1522,28 +1522,35 @@ class App(tk.Tk):
                 except AttributeError:
                     lbmem = self._lb_mem = OrderedDict()
                 bkey = str(path)
-                base = lbmem.get(bkey)
-                if base is not None:
+                entry = lbmem.get(bkey)
+                small = big = None
+                if entry is not None:
                     try:
                         lbmem.move_to_end(bkey)
-                        base = base.copy()
+                        small, big = entry
+                        small = small.copy()
+                        big = big.copy()
                     except Exception:
-                        pass
-                if base is None:
+                        small = big = None
+                if small is None or big is None:
                     with Image.open(path) as im:
                         try:
-                            im.draft("RGB", (2400, 2400))
+                            im.draft("RGB", (3600, 3600))
                         except Exception:
                             pass
                         im.load()
-                        base = im.convert("RGB")
-                        base.thumbnail((2400, 2400), Image.Resampling.BILINEAR)
+                        full = im.convert("RGB")
+                        big = full.copy()
+                        big.thumbnail((3600, 3600), Image.Resampling.BILINEAR)
+                        small = big.copy()
+                        small.thumbnail((1600, 1600), Image.Resampling.BILINEAR)
                     try:
-                        lbmem[bkey] = base.copy()
+                        lbmem[bkey] = (small.copy(), big.copy())
                         while len(lbmem) > 3:
                             lbmem.popitem(last=False)
                     except Exception:
                         pass
+                base = big if zoom > 1.25 else small
                 bw, bh = base.size
                 s = min(w / bw, h / bh) * zoom
                 nw, nh = max(1, int(bw * s)), max(1, int(bh * s))
@@ -1603,7 +1610,7 @@ class App(tk.Tk):
         except Exception:
             pass
 
-    _LB_MIN = 0.2
+    _LB_MIN = 0.5
     _LB_MAX = 8.0
 
     def _lightbox_zoom(self, factor, now=False):
@@ -1803,3 +1810,4 @@ class App(tk.Tk):
                          kind="success", ok_text="Tamam", on_ok=self._build_setup)
 
 if __name__ == "__main__": App().mainloop()
+    
