@@ -1446,7 +1446,8 @@ class App(tk.Tk):
         self._lb_sel = tk.Button(top, text="", command=self._lightbox_toggle, relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=16, pady=7)
         self._lb_sel.pack(side="right", padx=6)
         tk.Button(top, text="S\u0131\u011fd\u0131r", command=self._lightbox_fit, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right", padx=6)
-        tk.Button(top, text="\u2212", command=lambda: self._lightbox_zoom(0.8, True), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
+        self._lb_minus = tk.Button(top, text="\u2212", command=lambda: self._lightbox_zoom(0.8, True), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3)
+        self._lb_minus.pack(side="right", padx=2)
         tk.Button(top, text="+", command=lambda: self._lightbox_zoom(1.25, True), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
 
         mid = tk.Frame(ov, bg="#04070a")
@@ -1574,6 +1575,10 @@ class App(tk.Tk):
                 total = len(self.photos)
                 idx = getattr(self, "view_index", 0)
                 self._lb_title.configure(text=f"{idx + 1} / {total}  •  {path.name}  •  %{int(zoom * 100)}")
+                try:
+                    self._lb_minus.configure(state=("disabled" if zoom <= self._LB_MIN + 1e-9 else "normal"))
+                except Exception:
+                    pass
                 if path in self.selected:
                     self._lb_sel.configure(text="✓  Seçildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
                 else:
