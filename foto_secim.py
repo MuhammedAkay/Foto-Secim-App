@@ -1446,8 +1446,8 @@ class App(tk.Tk):
         self._lb_sel = tk.Button(top, text="", command=self._lightbox_toggle, relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=16, pady=7)
         self._lb_sel.pack(side="right", padx=6)
         tk.Button(top, text="S\u0131\u011fd\u0131r", command=self._lightbox_fit, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right", padx=6)
-        tk.Button(top, text="\u2212", command=lambda: self._lightbox_zoom(0.8), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
-        tk.Button(top, text="+", command=lambda: self._lightbox_zoom(1.25), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
+        tk.Button(top, text="\u2212", command=lambda: self._lightbox_zoom(0.8, True), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
+        tk.Button(top, text="+", command=lambda: self._lightbox_zoom(1.25, True), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
 
         mid = tk.Frame(ov, bg="#04070a")
         mid.pack(fill="both", expand=True, padx=14)
@@ -1499,7 +1499,7 @@ class App(tk.Tk):
                     self.after_cancel(self._lb_job)
                 except Exception:
                     pass
-            self._lb_job = self.after(80, self._lightbox_draw)
+            self._lb_job = self.after(40, self._lightbox_draw)
         except Exception:
             pass
 
@@ -1532,21 +1532,25 @@ class App(tk.Tk):
                 if base is None:
                     with Image.open(path) as im:
                         try:
-                            im.draft("RGB", (1600, 1600))
+                            im.draft("RGB", (2400, 2400))
                         except Exception:
                             pass
                         im.load()
                         base = im.convert("RGB")
-                        base.thumbnail((1600, 1600), Image.Resampling.BILINEAR)
+                        base.thumbnail((2400, 2400), Image.Resampling.BILINEAR)
                     try:
                         lbmem[bkey] = base.copy()
                         while len(lbmem) > 3:
                             lbmem.popitem(last=False)
                     except Exception:
                         pass
-                tw, th = max(1, int(w * zoom)), max(1, int(h * zoom))
-                fit = base.copy()
-                fit.thumbnail((tw, th), Image.Resampling.BILINEAR)
+                bw, bh = base.size
+                s = min(w / bw, h / bh) * zoom
+                nw, nh = max(1, int(bw * s)), max(1, int(bh * s))
+                if max(nw, nh) > 4096:
+                    k = 4096 / max(nw, nh)
+                    nw, nh = max(1, int(nw * k)), max(1, int(nh * k))
+                fit = base.resize((nw, nh), Image.Resampling.BILINEAR)
                 ref = ImageTk.PhotoImage(fit)
                 self._lb_img_ref = ref
                 self._lb_iw, self._lb_ih = fit.width, fit.height
@@ -1599,14 +1603,26 @@ class App(tk.Tk):
         except Exception:
             pass
 
-    _LB_MIN = 1.0
+    _LB_MIN = 0.2
     _LB_MAX = 8.0
 
-    def _lightbox_zoom(self, factor):
+    def _lightbox_zoom(self, factor, now=False):
         try:
             self._lb_zoom = max(self._LB_MIN, min(self._LB_MAX, getattr(self, "_lb_zoom", 1.0) * float(factor)))
             self._lightbox_clamp_offset()
-            self._lightbox_schedule()
+            if now:
+                try:
+                    if getattr(self, "_lb_job", None) is not None:
+                        try:
+                            self.after_cancel(self._lb_job)
+                        except Exception:
+                            pass
+                        self._lb_job = None
+                except Exception:
+                    pass
+                self._lightbox_draw()
+            else:
+                self._lightbox_schedule()
         except Exception:
             pass
 
