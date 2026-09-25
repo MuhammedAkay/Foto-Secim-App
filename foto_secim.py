@@ -136,18 +136,19 @@ class App(tk.Tk):
 
         self.folder = None; self.photos = []; self.cards = {}; self.selected = set()
         self.normal_selection = set(); self.cover = None; self.table = None; self.mode = "normal"
-        self.normal_count = 50; self.cover_required = True; self.table_required = True; self.output_dir = None
+        self.normal_count = 17; self.cover_required = False; self.table_required = False; self.output_dir = None
 
         self.folder_var = tk.StringVar(value="Klasör seçin...")
         self.output_name_var = tk.StringVar(value="")
-        self.count_var = tk.IntVar(value=50)
-        self.cover_var = tk.BooleanVar(value=True)
-        self.table_var = tk.BooleanVar(value=True)
+        self.count_var = tk.IntVar(value=17)
+        self.cover_var = tk.BooleanVar(value=False)
+        self.table_var = tk.BooleanVar(value=False)
         self.cover_count_var = tk.IntVar(value=1)
         self.table_count_var = tk.IntVar(value=1)
 
         self._is_painting = False
         self._modal = None
+        self._modal_old_return = None
         self._toast = None
         self._toast_job = None
         self._viewer_cache = OrderedDict()
@@ -245,6 +246,16 @@ class App(tk.Tk):
 
     def _modal_card(self, title, msg, kind):
         try:
+            cur = getattr(self, "_modal", None)
+            try:
+                cur_open = cur is not None and cur.winfo_exists()
+            except Exception:
+                cur_open = False
+            if not cur_open:
+                try:
+                    self._modal_old_return = self.bind("<Return>")
+                except Exception:
+                    self._modal_old_return = None
             self._modal_close(silent=True)
         except Exception:
             pass
@@ -294,6 +305,7 @@ class App(tk.Tk):
             tk.Button(btns, text=yes_text, command=_yes, bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=24, pady=9).pack(side="right")
             tk.Button(btns, text=no_text, command=_no, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=18, pady=9).pack(side="right", padx=(0, 8))
             self.bind("<Escape>", lambda e: _no())
+            self.bind("<Return>", lambda e: _yes())
         except Exception:
             pass
 
@@ -311,6 +323,16 @@ class App(tk.Tk):
                     for seq in ("<Return>",):
                         try:
                             self.unbind(seq)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                try:
+                    old = getattr(self, "_modal_old_return", None)
+                    self._modal_old_return = None
+                    if old:
+                        try:
+                            self.bind("<Return>", old)
                         except Exception:
                             pass
                 except Exception:
