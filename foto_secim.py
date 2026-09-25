@@ -1083,6 +1083,7 @@ class App(tk.Tk):
             pass
         n = 3 if int(n) == 3 else 2
         total = len(self.photos)
+        n = max(2, min(n, total))
         base = getattr(self, "view_index", 0)
         idxs = []
         for k in range(n):
