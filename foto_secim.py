@@ -92,7 +92,7 @@ class RoundedFrame(tk.Frame):
         self.body.pack(fill="both", expand=True, padx=border, pady=border)
 
 class GoldButton(tk.Canvas):
-    def __init__(self, master, text, command, parent_bg, height=48, radius=8, font=("Segoe UI", 11, "bold"), width=None):
+    def __init__(self, master, text, command, parent_bg, height=48, radius=8, font=("Segoe UI", 11, "bold"), width=None, icon=None):
         super().__init__(master, bg=parent_bg, highlightthickness=0, bd=0, cursor="hand2", height=height)
         if width is not None:
             self.configure(width=width)
@@ -100,6 +100,8 @@ class GoldButton(tk.Canvas):
         self._gb_cmd = command
         self._gb_r = radius
         self._gb_font = font
+        self._gb_icon = icon
+        self._gb_icon_ref = None
         self._gb_hover = False
         self.bind("<Configure>", lambda e: self._gb_draw())
         self.bind("<Button-1>", lambda e: self._gb_cmd())
@@ -119,7 +121,20 @@ class GoldButton(tk.Canvas):
             self.delete("gb")
             fill = GOLD_HOVER if self._gb_hover else GOLD
             draw_rr(self, 1, 1, w - 1, h - 1, self._gb_r, fill=fill, tags="gb")
-            self.create_text(w / 2, h / 2, text=self._gb_text, fill="#12181f", font=self._gb_font, tags="gb")
+            tx = w / 2
+            try:
+                if self._gb_icon:
+                    top = self.winfo_toplevel()
+                    im = top._icon(self._gb_icon, 20) if hasattr(top, "_icon") else None
+                    if im is not None:
+                        import tkinter.font as _tkf
+                        tw = _tkf.Font(font=self._gb_font).measure(self._gb_text)
+                        self._gb_icon_ref = im
+                        self.create_image(w / 2 - tw / 2 - 22, h / 2, image=im, tags="gb")
+                        tx = w / 2 + 12
+            except Exception:
+                pass
+            self.create_text(tx, h / 2, text=self._gb_text, fill="#12181f", font=self._gb_font, tags="gb")
         except Exception:
             pass
 
@@ -149,6 +164,7 @@ class App(tk.Tk):
         self._is_painting = False
         self._modal = None
         self._modal_old_return = None
+        self._icon_cache = {}
         self._toast = None
         self._toast_job = None
         self._viewer_cache = OrderedDict()
@@ -168,6 +184,21 @@ class App(tk.Tk):
                     canv.paste(im, ((size - im.width) // 2, (size - im.height) // 2), im)
                     self._logo_cache[size] = ImageTk.PhotoImage(canv)
             return self._logo_cache[size]
+        except Exception:
+            return None
+
+    def _icon(self, name, size=16):
+        try:
+            key = (name, size)
+            if key not in self._icon_cache:
+                p = self._resource("assets", "icons", f"{name}.png")
+                if not p.exists():
+                    return None
+                with Image.open(str(p)) as im:
+                    im = im.convert("RGBA")
+                    im.thumbnail((size, size), Image.Resampling.LANCZOS)
+                    self._icon_cache[key] = ImageTk.PhotoImage(im)
+            return self._icon_cache[key]
         except Exception:
             return None
 
@@ -269,7 +300,11 @@ class App(tk.Tk):
         glyph, col = icons.get(kind, icons["info"])
         h = tk.Frame(card, bg=PANEL)
         h.pack(fill="x", padx=20, pady=(18, 6))
-        tk.Label(h, text=glyph, bg=PANEL, fg=col, font=("Segoe UI", 16, "bold")).pack(side="left", padx=(0, 10))
+        _micon = self._icon(kind if kind in ("info", "warn", "success", "error") else "info", 24)
+        if _micon is not None:
+            tk.Label(h, image=_micon, bg=PANEL).pack(side="left", padx=(0, 10))
+        else:
+            tk.Label(h, text=glyph, bg=PANEL, fg=col, font=("Segoe UI", 16, "bold")).pack(side="left", padx=(0, 10))
         tk.Label(h, text=title, bg=PANEL, fg=TEXT, font=("Segoe UI", 12, "bold"), wraplength=360, justify="left").pack(side="left")
         tk.Label(card, text=msg, bg=PANEL, fg=MUTED, font=("Segoe UI", 10), wraplength=400, justify="left").pack(fill="x", padx=20, pady=(0, 14))
         btns = tk.Frame(card, bg=PANEL)
@@ -361,11 +396,11 @@ class App(tk.Tk):
         except Exception:
             pass
 
-    def gold_button(self, p, text, cmd, big=False):
-        return tk.Button(p, text=text, command=cmd, bg=GOLD, fg="#11161a", activebackground=GOLD_HOVER, activeforeground="#11161a", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 12 if big else 10, "bold"), padx=18, pady=12 if big else 9)
+    def gold_button(self, p, text, cmd, big=False, icon=None, icon_size=15, pos="left"):
+        return tk.Button(p, image=self._icon(icon, icon_size) if icon else None, text=text, compound=pos, command=cmd, bg=GOLD, fg="#11161a", activebackground=GOLD_HOVER, activeforeground="#11161a", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 12 if big else 10, "bold"), padx=18, pady=12 if big else 9)
 
-    def dark_button(self, p, text, cmd):
-        return tk.Button(p, text=text, command=cmd, bg=PANEL2, fg=TEXT, activebackground="#26343d", activeforeground="#fff", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=12, pady=9)
+    def dark_button(self, p, text, cmd, icon=None, icon_size=14):
+        return tk.Button(p, image=self._icon(icon, icon_size) if icon else None, text=text, compound="left", command=cmd, bg=PANEL2, fg=TEXT, activebackground="#26343d", activeforeground="#fff", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=12, pady=9)
 
     def _topbar(self, parent):
         bar = tk.Frame(parent, bg="#0b1014", height=48)
@@ -430,7 +465,7 @@ class App(tk.Tk):
 
         h1 = tk.Frame(ibody, bg=PANEL)
         h1.pack(fill="x", padx=16, pady=(14, 10))
-        tk.Label(h1, text="\U0001F4C1", bg=PANEL, fg=GOLD, font=("Segoe UI", 13)).pack(side="left", padx=(0, 8))
+        tk.Label(h1, image=self._icon("folder", 20), bg=PANEL).pack(side="left", padx=(0, 8))
         tk.Label(h1, text="Albüm Bilgileri", bg=PANEL, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(side="left")
 
         tk.Label(ibody, text="Albüm Klasörü", bg=PANEL, fg=TEXT, font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=16, pady=(0, 5))
@@ -443,7 +478,7 @@ class App(tk.Tk):
 
         fbtn_wrap = RoundedFrame(fr, radius=6, fill=GOLD, outline=GOLD, border=0)
         fbtn_wrap.pack(side="right")
-        btn_folder = tk.Button(fbtn_wrap.body, text="\U0001F4C1", command=self.choose_folder, bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER, activeforeground="#141a20", relief="flat", bd=0, font=("Segoe UI", 11), width=4, cursor="hand2")
+        btn_folder = tk.Button(fbtn_wrap.body, image=self._icon("folder_dark", 18), command=self.choose_folder, bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER, activeforeground="#141a20", relief="flat", bd=0, width=44, cursor="hand2")
         btn_folder.pack(padx=1, pady=1)
 
         tk.Label(ibody, text="Albüm Adı (Klasör Adı)", bg=PANEL, fg=TEXT, font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=16, pady=(0, 5))
@@ -474,14 +509,14 @@ class App(tk.Tk):
 
         h2 = tk.Frame(cbody, bg=PANEL)
         h2.pack(fill="x", padx=16, pady=(14, 10))
-        tk.Label(h2, text="\U0001F5BC", bg=PANEL, fg=GOLD, font=("Segoe UI", 13)).pack(side="left", padx=(0, 8))
+        tk.Label(h2, image=self._icon("image", 20), bg=PANEL).pack(side="left", padx=(0, 8))
         tk.Label(h2, text="Seçim Sayıları", bg=PANEL, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(side="left")
 
         self.count_spins = {}; self.count_badges = {}; self.count_labels = {}
         def count_row(label, var):
             row = tk.Frame(cbody, bg=PANEL)
             row.pack(fill="x", padx=16, pady=5)
-            tk.Label(row, text="\U0001F5BC", bg=PANEL, fg="#9aa5ae", font=("Segoe UI", 12)).pack(side="left", padx=(0, 9))
+            tk.Label(row, image=self._icon("image", 16), bg=PANEL).pack(side="left", padx=(0, 9))
             lb = tk.Label(row, text=label, bg=PANEL, fg=TEXT, font=("Segoe UI", 9))
             lb.pack(side="left")
             badge = tk.Label(row, text="(Zorunlu)", bg=PANEL, fg=MUTED, font=("Segoe UI", 8))
@@ -490,7 +525,7 @@ class App(tk.Tk):
             sbox.pack(side="right")
             srow = tk.Frame(sbox.body, bg=FIELD)
             srow.pack(padx=2, pady=2)
-            tk.Label(srow, text="\U0001F5BC", bg=FIELD, fg="#8b959d", font=("Segoe UI", 9)).pack(side="left", padx=(6, 2))
+            tk.Label(srow, image=self._icon("image", 14), bg=FIELD).pack(side="left", padx=(6, 2))
             tk.Frame(srow, bg=BORDER, width=1, height=18).pack(side="left", padx=4)
             spin = tk.Spinbox(srow, from_=1, to=500, textvariable=var, width=5, bg=FIELD, fg="#f0f2f4", buttonbackground=FIELD, relief="flat", bd=0, font=("Segoe UI", 10, "bold"), justify="center", disabledbackground=FIELD, disabledforeground="#5a656d", insertbackground=TEXT)
             spin.pack(side="left", padx=(0, 2))
@@ -507,7 +542,7 @@ class App(tk.Tk):
 
         eh = tk.Frame(ebody, bg=PANEL)
         eh.pack(fill="x", padx=16, pady=(13, 1))
-        tk.Label(eh, text="⚙", bg=PANEL, fg=GOLD, font=("Segoe UI", 13, "bold")).pack(side="left", padx=(0, 8))
+        tk.Label(eh, image=self._icon("gear", 20), bg=PANEL).pack(side="left", padx=(0, 8))
         tk.Label(eh, text="Ekstra Seçenekler", bg=PANEL, fg=GOLD, font=("Segoe UI", 11, "bold")).pack(side="left")
         tk.Label(ebody, text="İhtiyacınıza göre ek seçimleri aktif edebilirsiniz.", bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).pack(anchor="w", padx=16, pady=(0, 10))
 
@@ -538,7 +573,7 @@ class App(tk.Tk):
             box.grid(row=0, column=column, sticky="ew", padx=4)
             top = tk.Frame(box.body, bg=PANEL2)
             top.pack(fill="x", padx=12, pady=10)
-            tk.Label(top, text=icon, bg=PANEL2, fg=GOLD, font=("Segoe UI", 12)).pack(side="left", padx=(0, 10))
+            tk.Label(top, image=self._icon(icon, 22), bg=PANEL2).pack(side="left", padx=(0, 10))
             tx = tk.Frame(top, bg=PANEL2)
             tx.pack(side="left", fill="x", expand=True)
             tk.Label(tx, text=text, bg=PANEL2, fg=TEXT, font=("Segoe UI", 9, "bold")).pack(anchor="w")
@@ -546,11 +581,11 @@ class App(tk.Tk):
             sw = make_toggle(top, var)
             sw.pack(side="right", padx=(6, 0))
 
-        option("\U0001F5BC", "Albüm Kapağı Seç", "Kapak fotoğrafı seçimi yapılacak.", self.cover_var, 0)
-        option("\U0001F5BC", "Tablo Fotoğrafı Seç", "Tablo fotoğrafı seçimi yapılacak.", self.table_var, 1)
+        option("image", "Albüm Kapağı Seç", "Kapak fotoğrafı seçimi yapılacak.", self.cover_var, 0)
+        option("image", "Tablo Fotoğrafı Seç", "Tablo fotoğrafı seçimi yapılacak.", self.table_var, 1)
 
         # 4. Basla - tam genislik gold
-        GoldButton(inner, "▶      Başla", self.start, OUTER, height=48, radius=10, font=("Segoe UI", 12, "bold")).pack(fill="x", pady=(12, 0))
+        GoldButton(inner, "Başla", self.start, OUTER, height=48, radius=10, font=("Segoe UI", 12, "bold"), icon="play_dark").pack(fill="x", pady=(12, 0))
 
         self._setup_win = cv.create_window((0, 0), window=shell, anchor="n", width=860)
         self._sync_optional_count_states()
@@ -697,18 +732,18 @@ class App(tk.Tk):
 
         controls = tk.Frame(root, bg=BG)
         controls.pack(fill="x", padx=22, pady=(0, 8))
-        self.dark_button(controls, "\u2190 Ayarlar", self.go_setup).pack(side="left")
-        self.dark_button(controls, "\u21bb Temizle", self.clear_current).pack(side="left", padx=7)
-        self.gold_button(controls, "\u0130LER\u0130  \u2192", self.next_step).pack(side="right")
+        self.dark_button(controls, "Ayarlar", self.go_setup, icon="chev-l").pack(side="left")
+        self.dark_button(controls, "Temizle", self.clear_current, icon="refresh").pack(side="left", padx=7)
+        self.gold_button(controls, "\u0130LER\u0130", self.next_step, icon="chev-r", pos="right").pack(side="right")
 
         viewer_wrap = tk.Frame(root, bg=PANEL, highlightbackground=LINE, highlightthickness=1)
         viewer_wrap.pack(fill="both", expand=True, padx=22, pady=(0, 8))
         viewer_wrap.rowconfigure(0, weight=1)
         viewer_wrap.columnconfigure(1, weight=1)
 
-        self.nav_prev = tk.Button(viewer_wrap, text="\u2039", command=self.gallery_prev, bg=PANEL, fg=GOLD, activebackground="#223039", activeforeground=GOLD, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 34, "bold"), width=2)
+        self.nav_prev = tk.Button(viewer_wrap, image=self._icon("chev-l", 30), command=self.gallery_prev, bg=PANEL, activebackground="#223039", relief="flat", bd=0, cursor="hand2", width=54)
         self.nav_prev.grid(row=0, column=0, sticky="ns", padx=(4, 0), pady=4)
-        self.nav_next = tk.Button(viewer_wrap, text="\u203a", command=self.gallery_next, bg=PANEL, fg=GOLD, activebackground="#223039", activeforeground=GOLD, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 34, "bold"), width=2)
+        self.nav_next = tk.Button(viewer_wrap, image=self._icon("chev-r", 30), command=self.gallery_next, bg=PANEL, activebackground="#223039", relief="flat", bd=0, cursor="hand2", width=54)
         self.nav_next.grid(row=0, column=2, sticky="ns", padx=(0, 4), pady=4)
 
         center = tk.Frame(viewer_wrap, bg="#0c1116")
@@ -722,24 +757,24 @@ class App(tk.Tk):
 
         self.caption = tk.Label(center, text="", bg="#0c1116", fg="#c9d1d7", font=("Segoe UI", 9))
         self.caption.grid(row=1, column=0, sticky="ew", pady=(4, 2))
-        self.badge = tk.Label(center, text="", bg="#0c1116", fg="#8be1a9", font=("Segoe UI", 10, "bold"))
+        self.badge = tk.Label(center, text="", compound="left", bg="#0c1116", fg="#8be1a9", font=("Segoe UI", 10, "bold"))
         self.badge.grid(row=2, column=0, sticky="ew", pady=(0, 4))
 
         toolbar = tk.Frame(root, bg=PANEL, highlightbackground=LINE, highlightthickness=1)
         toolbar.pack(fill="x", padx=22, pady=(0, 8))
         bar = tk.Frame(toolbar, bg=PANEL)
         bar.pack(pady=8)
-        self.tb_select = tk.Button(bar, text="\u2665  Se\u00e7", command=self.gallery_toggle_current, bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 11, "bold"), padx=22, pady=8)
+        self.tb_select = tk.Button(bar, image=self._icon("heart_dark", 16), text="Se\u00e7", compound="left", command=self.gallery_toggle_current, bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 11, "bold"), padx=22, pady=8)
         self.tb_select.pack(side="left", padx=5)
-        self.tb_prev = tk.Button(bar, text="\u25c0 \u00d6nceki", command=self.gallery_prev, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_prev = tk.Button(bar, image=self._icon("chev-l", 14), text="\u00d6nceki", compound="left", command=self.gallery_prev, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
         self.tb_prev.pack(side="left", padx=5)
-        self.tb_next = tk.Button(bar, text="Sonraki \u25b6", command=self.gallery_next, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_next = tk.Button(bar, image=self._icon("chev-r", 14), text="Sonraki", compound="left", command=self.gallery_next, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
         self.tb_next.pack(side="left", padx=5)
-        self.tb_compare = tk.Button(bar, text="\u25a6 2\u2019li", command=lambda: self.gallery_compare(2), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_compare = tk.Button(bar, image=self._icon("grid", 14), text="2\u2019li", compound="left", command=lambda: self.gallery_compare(2), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
         self.tb_compare.pack(side="left", padx=5)
-        self.tb_compare3 = tk.Button(bar, text="\u25a6 3\u2019l\u00fc", command=lambda: self.gallery_compare(3), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_compare3 = tk.Button(bar, image=self._icon("grid", 14), text="3\u2019l\u00fc", compound="left", command=lambda: self.gallery_compare(3), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
         self.tb_compare3.pack(side="left", padx=5)
-        self.tb_zoom = tk.Button(bar, text="\u26f6 B\u00fcy\u00fct", command=lambda: self.open_photo(self.photos[self.view_index]), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
+        self.tb_zoom = tk.Button(bar, image=self._icon("zoom", 14), text="B\u00fcy\u00fct", compound="left", command=lambda: self.open_photo(self.photos[self.view_index]), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=8)
         self.tb_zoom.pack(side="left", padx=5)
         tk.Label(bar, text="\u2190 \u2192 gez \u2022 Space se\u00e7 \u2022 F b\u00fcy\u00fct", bg=PANEL, fg=MUTED, font=("Segoe UI", 8)).pack(side="left", padx=(12, 0))
 
@@ -1177,7 +1212,7 @@ class App(tk.Tk):
         top.pack(fill="x", padx=14, pady=(12, 6))
         tk.Label(top, text="Kar\u015f\u0131la\u015ft\u0131r", bg="#0b1014", fg=GOLD, font=("Segoe UI", 14, "bold")).pack(side="left")
         tk.Label(top, text="yan yana incele, be\u011fendiklerini se\u00e7", bg="#0b1014", fg=MUTED, font=("Segoe UI", 9)).pack(side="left", padx=(10, 0))
-        tk.Button(top, text="\u2715 Kapat  (Esc)", command=self._compare_close, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right")
+        tk.Button(top, image=self._icon("x", 13), text="Kapat  (Esc)", compound="left", command=self._compare_close, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right")
         self._cmp_btn3 = tk.Button(top, text="3\u2019l\u00fc", command=lambda: self._compare_set_n(3), relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=16, pady=7)
         self._cmp_btn3.pack(side="right", padx=6)
         self._cmp_btn2 = tk.Button(top, text="2\u2019li", command=lambda: self._compare_set_n(2), relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=16, pady=7)
@@ -1195,13 +1230,13 @@ class App(tk.Tk):
             img.bind("<Double-Button-1>", lambda e, cc=c: self._lightbox_open(self.photos[self._cmp_idxs[cc]]))
             nav = tk.Frame(col, bg=PANEL)
             nav.pack(fill="x", padx=8, pady=2)
-            bp = tk.Button(nav, text="\u2039", font=("Segoe UI", 16, "bold"), bg=PANEL2, fg=GOLD, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", width=3, command=lambda cc=c: self._compare_nav(cc, -1))
+            bp = tk.Button(nav, image=self._icon("chev-l", 13), bg=PANEL2, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", width=34, command=lambda cc=c: self._compare_nav(cc, -1))
             bp.pack(side="left")
-            bn = tk.Button(nav, text="\u203a", font=("Segoe UI", 16, "bold"), bg=PANEL2, fg=GOLD, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", width=3, command=lambda cc=c: self._compare_nav(cc, 1))
+            bn = tk.Button(nav, image=self._icon("chev-r", 13), bg=PANEL2, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", width=34, command=lambda cc=c: self._compare_nav(cc, 1))
             bn.pack(side="right")
             cap = tk.Label(nav, text="", bg=PANEL, fg="#c9d1d7", font=("Segoe UI", 8))
             cap.pack(side="left", expand=True)
-            sel = tk.Button(col, text="", font=("Segoe UI", 10, "bold"), relief="flat", bd=0, cursor="hand2", padx=10, pady=7, command=lambda cc=c: self._compare_toggle(cc))
+            sel = tk.Button(col, text="", compound="left", font=("Segoe UI", 10, "bold"), relief="flat", bd=0, cursor="hand2", padx=10, pady=7, command=lambda cc=c: self._compare_toggle(cc))
             sel.pack(fill="x", padx=8, pady=(2, 8))
             self._cmp_cols.append({"frame": col, "img": img, "cap": cap, "sel": sel})
         for c in range(3):
@@ -1307,10 +1342,10 @@ class App(tk.Tk):
                 try:
                     col["cap"].configure(text=f"{idx + 1} / {len(self.photos)}  •  {path.name}")
                     if path in self.selected:
-                        col["sel"].configure(text="✓  Seçildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
+                        col["sel"].configure(image=self._icon("check_dark", 14), text="Seçildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
                         col["frame"].configure(highlightbackground="#3fae6a", highlightthickness=2)
                     else:
-                        col["sel"].configure(text="♥  Seç", bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER)
+                        col["sel"].configure(image=self._icon("heart_dark", 14), text="Seç", bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER)
                         if idx == getattr(self, "view_index", -1):
                             col["frame"].configure(highlightbackground=GOLD, highlightthickness=2)
                         else:
@@ -1421,16 +1456,16 @@ class App(tk.Tk):
                 try:
                     self.caption.configure(text=f"{idx + 1} / {total}  \u2022  {cur.name}")
                     if cur in self.selected:
-                        self.badge.configure(text="\u2665 SE\u00c7\u0130LD\u0130  \u2713", fg="#8be1a9")
+                        self.badge.configure(image=self._icon("check", 14), text="SE\u00c7\u0130LD\u0130", fg="#8be1a9")
                     else:
-                        self.badge.configure(text="", fg="#8be1a9")
+                        self.badge.configure(image="", text="", fg="#8be1a9")
                 except Exception:
                     pass
                 try:
                     if cur in self.selected:
-                        self.tb_select.configure(bg="#3fae6a", activebackground="#4cc47e", text="\u2713  Se\u00e7ildi")
+                        self.tb_select.configure(bg="#3fae6a", activebackground="#4cc47e", image=self._icon("check_dark", 16), text="Se\u00e7ildi")
                     else:
-                        self.tb_select.configure(bg=GOLD, activebackground=GOLD_HOVER, text="\u2665  Se\u00e7")
+                        self.tb_select.configure(bg=GOLD, activebackground=GOLD_HOVER, image=self._icon("heart_dark", 16), text="Se\u00e7")
                 except Exception:
                     pass
         except Exception:
@@ -1499,20 +1534,20 @@ class App(tk.Tk):
         top.pack(fill="x", padx=14, pady=(12, 6))
         self._lb_title = tk.Label(top, text="", bg="#0b1014", fg=TEXT, font=("Segoe UI", 11, "bold"))
         self._lb_title.pack(side="left")
-        tk.Button(top, text="\u2715 Kapat  (Esc)", command=self._lightbox_close, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right")
-        self._lb_sel = tk.Button(top, text="", command=self._lightbox_toggle, relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=16, pady=7)
+        tk.Button(top, image=self._icon("x", 13), text="Kapat  (Esc)", compound="left", command=self._lightbox_close, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right")
+        self._lb_sel = tk.Button(top, text="", compound="left", command=self._lightbox_toggle, relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=16, pady=7)
         self._lb_sel.pack(side="right", padx=6)
         tk.Button(top, text="S\u0131\u011fd\u0131r", command=self._lightbox_fit, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right", padx=6)
-        self._lb_minus = tk.Button(top, text="\u2212", command=lambda: self._lightbox_zoom(0.8, True), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3)
+        self._lb_minus = tk.Button(top, image=self._icon("minus", 13), command=lambda: self._lightbox_zoom(0.8, True), bg=PANEL2, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, width=34)
         self._lb_minus.pack(side="right", padx=2)
-        tk.Button(top, text="+", command=lambda: self._lightbox_zoom(1.25, True), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
+        tk.Button(top, image=self._icon("plus", 13), command=lambda: self._lightbox_zoom(1.25, True), bg=PANEL2, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, width=34).pack(side="right", padx=2)
 
         mid = tk.Frame(ov, bg="#04070a")
         mid.pack(fill="both", expand=True, padx=14)
         mid.columnconfigure(1, weight=1)
         mid.rowconfigure(0, weight=1)
-        tk.Button(mid, text="\u2039", command=lambda: self._lightbox_nav(-1), bg="#0d141b", fg=GOLD, activebackground="#1a2530", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 30, "bold"), width=2).grid(row=0, column=0, sticky="ns", padx=(0, 8))
-        tk.Button(mid, text="\u203a", command=lambda: self._lightbox_nav(1), bg="#0d141b", fg=GOLD, activebackground="#1a2530", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 30, "bold"), width=2).grid(row=0, column=2, sticky="ns", padx=(8, 0))
+        tk.Button(mid, image=self._icon("chev-l", 26), command=lambda: self._lightbox_nav(-1), bg="#0d141b", activebackground="#1a2530", relief="flat", bd=0, cursor="hand2", takefocus=0, width=54).grid(row=0, column=0, sticky="ns", padx=(0, 8))
+        tk.Button(mid, image=self._icon("chev-r", 26), command=lambda: self._lightbox_nav(1), bg="#0d141b", activebackground="#1a2530", relief="flat", bd=0, cursor="hand2", takefocus=0, width=54).grid(row=0, column=2, sticky="ns", padx=(8, 0))
 
         cvwrap = tk.Frame(mid, bg="#04070a")
         cvwrap.grid(row=0, column=1, sticky="nsew")
@@ -1637,9 +1672,9 @@ class App(tk.Tk):
                 except Exception:
                     pass
                 if path in self.selected:
-                    self._lb_sel.configure(text="✓  Seçildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
+                    self._lb_sel.configure(image=self._icon("check_dark", 14), text="Seçildi", bg="#3fae6a", fg="#0c1116", activebackground="#4cc47e")
                 else:
-                    self._lb_sel.configure(text="♥  Seç", bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER)
+                    self._lb_sel.configure(image=self._icon("heart_dark", 14), text="Seç", bg=GOLD, fg="#141a20", activebackground=GOLD_HOVER)
             except Exception:
                 pass
         except Exception:
