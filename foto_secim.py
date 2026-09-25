@@ -747,10 +747,22 @@ class App(tk.Tk):
         strip_wrap.pack(fill="x", padx=22, pady=(0, 14))
         self.strip_canvas = tk.Canvas(strip_wrap, bg=PANEL, highlightthickness=0, height=86)
         self.strip_canvas.pack(side="left", fill="x", expand=True, padx=(8, 0), pady=8)
-        strip_sb = tk.Scrollbar(strip_wrap, orient="horizontal", command=self.strip_canvas.xview,
-                                bg=PANEL2, troughcolor="#0c1116", activebackground=GOLD,
-                                relief="flat", bd=0, highlightthickness=0,
-                                elementborderwidth=0, width=12)
+        try:
+            _sb_style = ttk.Style(self)
+            try:
+                _sb_style.theme_use("clam")
+            except Exception:
+                pass
+            _sb_style.configure("Strip.Horizontal.TScrollbar", background=PANEL2, troughcolor="#0c1116",
+                                arrowcolor=GOLD, bordercolor=PANEL, lightcolor=PANEL2, darkcolor=PANEL2,
+                                borderwidth=0, arrowsize=13, relief="flat")
+            _sb_style.map("Strip.Horizontal.TScrollbar",
+                          background=[("pressed", GOLD), ("active", "#2b3947")],
+                          arrowcolor=[("pressed", "#141a20"), ("active", GOLD_HOVER)])
+        except Exception:
+            pass
+        strip_sb = ttk.Scrollbar(strip_wrap, orient="horizontal", command=self.strip_canvas.xview,
+                                 style="Strip.Horizontal.TScrollbar")
         strip_sb.pack(side="bottom", fill="x", padx=8, pady=(0, 6))
         self.strip_canvas.configure(xscrollcommand=strip_sb.set)
         self.strip_inner = tk.Frame(self.strip_canvas, bg=PANEL)
