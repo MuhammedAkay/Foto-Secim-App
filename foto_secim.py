@@ -680,7 +680,6 @@ class App(tk.Tk):
         root = tk.Frame(self, bg=BG)
         root.pack(fill="both", expand=True)
         self._gal_root = root
-        self._topbar(root)
 
         head = tk.Frame(root, bg=BG)
         head.pack(fill="x", padx=22, pady=(12, 6))
@@ -695,8 +694,6 @@ class App(tk.Tk):
         right.pack(side="right")
         self.counter = tk.Label(right, text="", bg=BG, fg=TEXT, font=("Segoe UI", 12, "bold"))
         self.counter.pack(anchor="e")
-        self.progress = tk.Canvas(right, width=220, height=6, bg=BG, highlightthickness=0)
-        self.progress.pack(anchor="e", pady=(6, 0))
 
         controls = tk.Frame(root, bg=BG)
         controls.pack(fill="x", padx=22, pady=(0, 8))
@@ -750,7 +747,10 @@ class App(tk.Tk):
         strip_wrap.pack(fill="x", padx=22, pady=(0, 14))
         self.strip_canvas = tk.Canvas(strip_wrap, bg=PANEL, highlightthickness=0, height=86)
         self.strip_canvas.pack(side="left", fill="x", expand=True, padx=(8, 0), pady=8)
-        strip_sb = ttk.Scrollbar(strip_wrap, orient="horizontal", command=self.strip_canvas.xview)
+        strip_sb = tk.Scrollbar(strip_wrap, orient="horizontal", command=self.strip_canvas.xview,
+                                bg=PANEL2, troughcolor="#0c1116", activebackground=GOLD,
+                                relief="flat", bd=0, highlightthickness=0,
+                                elementborderwidth=0, width=12)
         strip_sb.pack(side="bottom", fill="x", padx=8, pady=(0, 6))
         self.strip_canvas.configure(xscrollcommand=strip_sb.set)
         self.strip_inner = tk.Frame(self.strip_canvas, bg=PANEL)
@@ -765,7 +765,6 @@ class App(tk.Tk):
         self.bind("<Up>", lambda e: self.gallery_prev())
         self.bind("<Down>", lambda e: self.gallery_next())
         self.bind("<space>", lambda e: self.gallery_toggle_current())
-        self.bind("<Return>", lambda e: self.gallery_toggle_current())
         self.bind("<f>", lambda e: self.open_photo(self.photos[self.view_index]))
         self.bind("<F>", lambda e: self.open_photo(self.photos[self.view_index]))
 
@@ -1365,15 +1364,12 @@ class App(tk.Tk):
             if self.mode == "normal":
                 self.step.configure(text="1  \u2022  NORMAL FOTO\u011eRAFLAR")
                 self.counter.configure(text=f"Se\u00e7ilen  {len(self.selected)} / {self.normal_count}")
-                frac = (len(self.selected) / max(1, self.normal_count))
             elif self.mode == "cover":
                 self.step.configure(text="2  \u2022  ALB\u00dcM KAPA\u011eI")
                 self.counter.configure(text=f"Kapak  {1 if self.selected else 0} / 1")
-                frac = (1 if self.selected else 0)
             else:
                 self.step.configure(text="3  \u2022  TABLO FOTO\u011eRAFI")
                 self.counter.configure(text=f"Tablo  {1 if self.selected else 0} / 1")
-                frac = (1 if self.selected else 0)
             try:
                 self.sub.configure(text=f"{total} foto\u011fraf  \u2022  {self.folder.name}  \u2022  {idx + 1} / {total}")
             except Exception:
@@ -1394,13 +1390,6 @@ class App(tk.Tk):
                         self.tb_select.configure(bg=GOLD, activebackground=GOLD_HOVER, text="\u2665  Se\u00e7")
                 except Exception:
                     pass
-            try:
-                self.progress.delete("all")
-                w = 220
-                self.progress.create_rectangle(0, 1, w, 5, fill="#222c35", outline="")
-                self.progress.create_rectangle(0, 1, int(w * max(0, min(1, frac))), 5, fill=GOLD, outline="")
-            except Exception:
-                pass
         except Exception:
             pass
 
@@ -1787,7 +1776,6 @@ class App(tk.Tk):
             self.bind("<Up>", lambda e: self.gallery_prev())
             self.bind("<Down>", lambda e: self.gallery_next())
             self.bind("<space>", lambda e: self.gallery_toggle_current())
-            self.bind("<Return>", lambda e: self.gallery_toggle_current())
             self.bind("<f>", lambda e: self.open_photo(self.photos[self.view_index]))
             self.bind("<F>", lambda e: self.open_photo(self.photos[self.view_index]))
             self.bind("<Escape>", lambda e: self.go_setup())
