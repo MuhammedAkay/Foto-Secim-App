@@ -764,10 +764,13 @@ class App(tk.Tk):
         strip_sb = ttk.Scrollbar(strip_wrap, orient="horizontal", command=self.strip_canvas.xview,
                                  style="Strip.Horizontal.TScrollbar")
         strip_sb.pack(side="bottom", fill="x", padx=8, pady=(0, 6))
+        self._strip_sb = strip_sb
+        self._strip_sb_shown = True
         self.strip_canvas.configure(xscrollcommand=strip_sb.set)
         self.strip_inner = tk.Frame(self.strip_canvas, bg=PANEL)
         self._strip_win = self.strip_canvas.create_window((0, 0), window=self.strip_inner, anchor="nw")
-        self.strip_inner.bind("<Configure>", lambda e: self.strip_canvas.configure(scrollregion=self.strip_canvas.bbox("all")))
+        self.strip_inner.bind("<Configure>", lambda e: self._strip_sync())
+        self.strip_canvas.bind("<Configure>", lambda e: self._strip_sync(), add="+")
         self.strip_canvas.bind("<MouseWheel>", self._strip_wheel)
         self.strip_canvas.bind("<Button-4>", lambda e: self.strip_canvas.xview_scroll(-1, "units"))
         self.strip_canvas.bind("<Button-5>", lambda e: self.strip_canvas.xview_scroll(1, "units"))
@@ -790,6 +793,34 @@ class App(tk.Tk):
                 self.strip_canvas.xview_scroll(int(-e.delta / 120), "units")
             else:
                 self.strip_canvas.xview_scroll(1, "units")
+        except Exception:
+            pass
+
+    def _strip_sync(self):
+        try:
+            cv = getattr(self, "strip_canvas", None)
+            sb = getattr(self, "_strip_sb", None)
+            if cv is None or sb is None or not cv.winfo_exists() or not sb.winfo_exists():
+                return
+            try:
+                cv.configure(scrollregion=cv.bbox("all"))
+            except Exception:
+                pass
+            need = False
+            try:
+                sr = cv.cget("scrollregion")
+                if sr:
+                    x0, _y0, x1, _y1 = (float(v) for v in str(sr).split())
+                    need = (x1 - x0) > cv.winfo_width() + 1
+            except Exception:
+                need = True
+            shown = bool(getattr(self, "_strip_sb_shown", True))
+            if need and not shown:
+                sb.pack(side="bottom", fill="x", padx=8, pady=(0, 6))
+                self._strip_sb_shown = True
+            elif not need and shown:
+                sb.pack_forget()
+                self._strip_sb_shown = False
         except Exception:
             pass
 
