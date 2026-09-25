@@ -1610,7 +1610,7 @@ class App(tk.Tk):
         except Exception:
             pass
 
-    _LB_MIN = 0.5
+    _LB_MIN = 1.0
     _LB_MAX = 8.0
 
     def _lightbox_zoom(self, factor, now=False):
@@ -1810,4 +1810,3 @@ class App(tk.Tk):
                          kind="success", ok_text="Tamam", on_ok=self._build_setup)
 
 if __name__ == "__main__": App().mainloop()
-    
