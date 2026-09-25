@@ -1428,6 +1428,10 @@ class App(tk.Tk):
         self._lb_zoom = 1.0
         self._lb_job = None
         self._lb_img_ref = None
+        self._lb_ox = 0.0
+        self._lb_oy = 0.0
+        self._lb_drag = None
+        self._lb_item = None
 
         ov = tk.Frame(self, bg="#04070a")
         ov.place(relx=0, rely=0, relwidth=1, relheight=1)
@@ -1438,19 +1442,19 @@ class App(tk.Tk):
         top.pack(fill="x", padx=14, pady=(12, 6))
         self._lb_title = tk.Label(top, text="", bg="#0b1014", fg=TEXT, font=("Segoe UI", 11, "bold"))
         self._lb_title.pack(side="left")
-        tk.Button(top, text="\u2715 Kapat  (Esc)", command=self._lightbox_close, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right")
-        self._lb_sel = tk.Button(top, text="", command=self._lightbox_toggle, relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=16, pady=7)
+        tk.Button(top, text="\u2715 Kapat  (Esc)", command=self._lightbox_close, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right")
+        self._lb_sel = tk.Button(top, text="", command=self._lightbox_toggle, relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=16, pady=7)
         self._lb_sel.pack(side="right", padx=6)
-        tk.Button(top, text="S\u0131\u011fd\u0131r", command=self._lightbox_fit, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right", padx=6)
-        tk.Button(top, text="\u2212", command=lambda: self._lightbox_zoom(0.8), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
-        tk.Button(top, text="+", command=lambda: self._lightbox_zoom(1.25), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
+        tk.Button(top, text="S\u0131\u011fd\u0131r", command=self._lightbox_fit, bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 10, "bold"), padx=14, pady=7).pack(side="right", padx=6)
+        tk.Button(top, text="\u2212", command=lambda: self._lightbox_zoom(0.8), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
+        tk.Button(top, text="+", command=lambda: self._lightbox_zoom(1.25), bg=PANEL2, fg=TEXT, activebackground="#26343d", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 12, "bold"), width=3).pack(side="right", padx=2)
 
         mid = tk.Frame(ov, bg="#04070a")
         mid.pack(fill="both", expand=True, padx=14)
         mid.columnconfigure(1, weight=1)
         mid.rowconfigure(0, weight=1)
-        tk.Button(mid, text="\u2039", command=lambda: self._lightbox_nav(-1), bg="#0d141b", fg=GOLD, activebackground="#1a2530", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 30, "bold"), width=2).grid(row=0, column=0, sticky="ns", padx=(0, 8))
-        tk.Button(mid, text="\u203a", command=lambda: self._lightbox_nav(1), bg="#0d141b", fg=GOLD, activebackground="#1a2530", relief="flat", bd=0, cursor="hand2", font=("Segoe UI", 30, "bold"), width=2).grid(row=0, column=2, sticky="ns", padx=(8, 0))
+        tk.Button(mid, text="\u2039", command=lambda: self._lightbox_nav(-1), bg="#0d141b", fg=GOLD, activebackground="#1a2530", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 30, "bold"), width=2).grid(row=0, column=0, sticky="ns", padx=(0, 8))
+        tk.Button(mid, text="\u203a", command=lambda: self._lightbox_nav(1), bg="#0d141b", fg=GOLD, activebackground="#1a2530", relief="flat", bd=0, cursor="hand2", takefocus=0, font=("Segoe UI", 30, "bold"), width=2).grid(row=0, column=2, sticky="ns", padx=(8, 0))
 
         cvwrap = tk.Frame(mid, bg="#04070a")
         cvwrap.grid(row=0, column=1, sticky="nsew")
@@ -1460,9 +1464,9 @@ class App(tk.Tk):
         cv.grid(row=0, column=0, sticky="nsew")
         self._lb_canvas = cv
         cv.bind("<Configure>", lambda e: self._lightbox_schedule())
-        cv.bind("<Button-1>", lambda e: cv.scan_mark(e.x, e.y))
-        cv.bind("<B1-Motion>", lambda e: cv.scan_dragto(e.x, e.y, gain=1))
-        cv.bind("<ButtonRelease-1>", lambda e: self._lightbox_clamp())
+        cv.bind("<Button-1>", self._lightbox_drag_start)
+        cv.bind("<B1-Motion>", self._lightbox_drag_move)
+        cv.bind("<ButtonRelease-1>", self._lightbox_drag_end)
         cv.bind("<MouseWheel>", self._lightbox_wheel)
         cv.bind("<Button-4>", lambda e: self._lightbox_zoom(1.15))
         cv.bind("<Button-5>", lambda e: self._lightbox_zoom(0.87))
@@ -1471,7 +1475,6 @@ class App(tk.Tk):
         hint.pack(pady=(6, 12))
         cv.bind("<Double-Button-1>", lambda e: self._lightbox_close())
 
-        self._lb_center = True
         ov.focus_set()
         self.bind("<Escape>", lambda e: self._lightbox_close())
         self.bind("<Left>", lambda e: self._lightbox_nav(-1))
@@ -1547,17 +1550,15 @@ class App(tk.Tk):
                 ref = ImageTk.PhotoImage(fit)
                 self._lb_img_ref = ref
                 self._lb_iw, self._lb_ih = fit.width, fit.height
+                self._lightbox_clamp_offset()
                 cv.delete("lb")
-                cv.create_image(0, 0, image=ref, anchor="center", tags="lb")
-                pad = 4
-                cv.configure(scrollregion=(-fit.width / 2 - pad, -fit.height / 2 - pad,
-                                           fit.width / 2 + pad, fit.height / 2 + pad))
-                if getattr(self, "_lb_center", True):
-                    self._lb_center = False
-                    self._lightbox_center()
+                self._lb_item = cv.create_image(w / 2 + self._lb_ox, h / 2 + self._lb_oy,
+                                                image=ref, anchor="center", tags="lb")
             except Exception:
                 cv.delete("lb")
-                cv.create_text(0, 0, text="Açılamadı", fill="#889198", tags="lb")
+                self._lb_item = None
+                cv.create_text(max(100, cv.winfo_width()) / 2, max(100, cv.winfo_height()) / 2,
+                               text="Açılamadı", fill="#889198", tags="lb")
             try:
                 total = len(self.photos)
                 idx = getattr(self, "view_index", 0)
@@ -1579,7 +1580,8 @@ class App(tk.Tk):
             self._viewer_draw()
             self._strip_refresh()
             self._update()
-            self._lb_center = True
+            self._lb_ox = 0.0
+            self._lb_oy = 0.0
             self._lightbox_schedule()
         except Exception:
             pass
@@ -1603,7 +1605,7 @@ class App(tk.Tk):
     def _lightbox_zoom(self, factor):
         try:
             self._lb_zoom = max(self._LB_MIN, min(self._LB_MAX, getattr(self, "_lb_zoom", 1.0) * float(factor)))
-            self._lb_center = True
+            self._lightbox_clamp_offset()
             self._lightbox_schedule()
         except Exception:
             pass
@@ -1611,7 +1613,8 @@ class App(tk.Tk):
     def _lightbox_fit(self):
         try:
             self._lb_zoom = 1.0
-            self._lb_center = True
+            self._lb_ox = 0.0
+            self._lb_oy = 0.0
             self._lightbox_schedule()
         except Exception:
             pass
@@ -1621,35 +1624,74 @@ class App(tk.Tk):
             cv = self._lb_canvas
             if not cv.winfo_exists():
                 return
-            sr = cv.cget("scrollregion")
-            if not sr:
+            self._lb_ox = 0.0
+            self._lb_oy = 0.0
+            if getattr(self, "_lb_item", None) is not None:
+                cv.coords(self._lb_item, cv.winfo_width() / 2, cv.winfo_height() / 2)
+        except Exception:
+            pass
+
+    def _lightbox_clamp_offset(self):
+        try:
+            cv = getattr(self, "_lb_canvas", None)
+            if cv is None or not cv.winfo_exists():
                 return
-            x0, y0, x1, y1 = (float(v) for v in str(sr).split())
+            iw = float(getattr(self, "_lb_iw", 0) or 0)
+            ih = float(getattr(self, "_lb_ih", 0) or 0)
             w = max(1, cv.winfo_width())
             h = max(1, cv.winfo_height())
-            srw = max(1.0, x1 - x0)
-            srh = max(1.0, y1 - y0)
-            fx = (-x0 - w / 2) / srw if srw > w else 0.0
-            fy = (-y0 - h / 2) / srh if srh > h else 0.0
-            cv.xview_moveto(max(0.0, min(1.0, fx)))
-            cv.yview_moveto(max(0.0, min(1.0, fy)))
+            if iw <= w:
+                self._lb_ox = 0.0
+            else:
+                lim = (iw - w) / 2
+                self._lb_ox = max(-lim, min(lim, getattr(self, "_lb_ox", 0.0)))
+            if ih <= h:
+                self._lb_oy = 0.0
+            else:
+                lim = (ih - h) / 2
+                self._lb_oy = max(-lim, min(lim, getattr(self, "_lb_oy", 0.0)))
+        except Exception:
+            pass
+
+    def _lightbox_drag_start(self, e=None):
+        try:
+            self._lb_drag = (e.x, e.y, getattr(self, "_lb_ox", 0.0), getattr(self, "_lb_oy", 0.0))
+        except Exception:
+            self._lb_drag = None
+
+    def _lightbox_drag_move(self, e=None):
+        try:
+            d = getattr(self, "_lb_drag", None)
+            if not d:
+                return
+            cv = self._lb_canvas
+            if not cv.winfo_exists():
+                return
+            self._lb_ox = d[2] + (e.x - d[0])
+            self._lb_oy = d[3] + (e.y - d[1])
+            self._lightbox_clamp_offset()
+            if getattr(self, "_lb_item", None) is not None:
+                cv.coords(self._lb_item, cv.winfo_width() / 2 + self._lb_ox,
+                          cv.winfo_height() / 2 + self._lb_oy)
+        except Exception:
+            pass
+
+    def _lightbox_drag_end(self, e=None):
+        try:
+            self._lb_drag = None
+            self._lightbox_clamp()
         except Exception:
             pass
 
     def _lightbox_clamp(self):
         try:
-            cv = self._lb_canvas
-            if not cv.winfo_exists():
+            self._lightbox_clamp_offset()
+            cv = getattr(self, "_lb_canvas", None)
+            if cv is None or not cv.winfo_exists():
                 return
-            box = cv.bbox("lb")
-            if not box:
-                return
-            x0 = cv.canvasx(0)
-            y0 = cv.canvasy(0)
-            x1 = cv.canvasx(max(1, cv.winfo_width()))
-            y1 = cv.canvasy(max(1, cv.winfo_height()))
-            if box[2] < x0 or box[0] > x1 or box[3] < y0 or box[1] > y1:
-                self._lightbox_center()
+            if getattr(self, "_lb_item", None) is not None:
+                cv.coords(self._lb_item, cv.winfo_width() / 2 + self._lb_ox,
+                          cv.winfo_height() / 2 + self._lb_oy)
         except Exception:
             pass
 
