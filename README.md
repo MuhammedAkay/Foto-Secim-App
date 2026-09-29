@@ -11,7 +11,8 @@ FotoSecim; düğün, nişan, dış çekim ve benzeri profesyonel fotoğrafçıl�
 "Pillow" (https://img.shields.io/badge/Pillow-Image_Processing-EC8115?style=for-the-badge&logo=python&logoColor=white)
 "Status" (https://img.shields.io/badge/Status-Private_Distribution-8A6D3B?style=for-the-badge&logo=lock&logoColor=white)
 
-</div>---
+</div>
+---
 
 ✨ FotoSecim Nedir?
 
@@ -29,6 +30,7 @@ Klasörü seç → Albümü oluştur → Fotoğrafları seç → Kapak/Tabloyu b
 
 FotoSecim'in amacı yalnızca fotoğraf seçtirmek değil, seçim sonrasındaki dosya düzenleme işlemini de mümkün olduğunca otomatikleştirmektir.
 
+```
 Geleneksel yöntem
 
 Müşteri fotoğraf numaralarını yazar
@@ -42,9 +44,9 @@ Dosyalar kopyalanır
 Kapak ve tablo ayrıca düzenlenir
               ↓
 Albüm klasörü hazırlanır
-
+```
 FotoSecim ile
-
+```
 Klasörü seç
     ↓
 Albüm bilgilerini gir
@@ -56,7 +58,7 @@ Kapak / tabloyu belirle
 BAŞLAT
     ↓
 Albüm klasörü hazır
-
+```
 ---
 
 🌟 Öne Çıkan Özellikler
