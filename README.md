@@ -65,7 +65,10 @@ BAŞLAT
     ↓
 Albüm klasörü hazır
 ```
-🌟 Öne Çıkan Özellikler
+
+---
+
+## 🌟 Öne Çıkan Özellikler
 | Özellik | Açıklama |
 |---|---|
 | 📁 Klasör Bazlı Çalışma | Fotoğrafların bulunduğu mevcut klasör üzerinden çalışır. |
@@ -79,7 +82,10 @@ Albüm klasörü hazır
 | 💻 Windows Desteği | Windows 10 ve Windows 11 üzerinde çalışmak üzere tasarlanmıştır. |
 | 🚀 Kurulumsuz EXE | Build edilmiş sürüm tek bir .exe dosyası olarak kullanılabilir. |
 | 🔒 Yerel Çalışma | Fotoğrafların internet üzerinden herhangi bir sunucuya yüklenmesine gerek yoktur. |
-🖥️ Kullanım
+
+---
+
+## 🖥️ Kullanım
 1. 📁 Fotoğraf Klasörünü Seç
 Fotoğrafların bulunduğu ana klasörü seçin. Uygulama bu klasörde bulunan fotoğraflar üzerinden seçim ekranını oluşturur.
 2. ✏️ Albüm Bilgilerini Gir
@@ -131,8 +137,10 @@ Düğün_2026/
     └── TABLO.jpg
 ```
 > Not: Dosya adlandırma ve çıktı yapısı uygulamanın mevcut sürümündeki yapılandırmaya göre değişebilir.
-> 
-🛡️ Veri Güvenliği
+
+---
+
+## 🛡️ Veri Güvenliği
 FotoSecim'in temel çalışma prensiplerinden biri yerel dosya işlemleridir. Fotoğraflarınızı seçmek veya albüm oluşturmak için herhangi bir bulut depolama sistemine yükleme yapılması gerekmez.
 Uygulama:
  * ❌ Fotoğrafları internete yüklemez
@@ -151,8 +159,10 @@ Bu yapı özellikle müşterilerinin fotoğraflarıyla çalışan profesyonel fo
 | <kbd>F</kbd> | Tam ekran önizleme |
 | <kbd>Esc</kbd> | Önizlemeyi kapat / geri dön |
 > Not: Kısayollar kullanılan uygulama sürümüne göre değişebilir.
-> 
-🧰 Teknik Yapı
+
+---
+
+## 🧰 Teknik Yapı
 FotoSecim Python tabanlı olarak geliştirilmiştir.
 Kullanılan Teknolojiler:
  * Python 3.10+
@@ -179,7 +189,9 @@ flowchart LR
     F --> G[📂 Albüm Klasörü]
     G --> H[✅ Seçilen Fotoğraflar Kopyalandı]
 
-🎨 Tasarım
+---
+
+## 🎨 Tasarım
 FotoSecim'in arayüzü, uzun süre bilgisayar başında çalışan fotoğrafçılar düşünülerek tasarlanmıştır.
 Tasarım Yaklaşımı:
  * 🌑 Koyu arayüz
@@ -195,8 +207,11 @@ Tasarım Yaklaşımı:
  * 🖼️️ Albüm tasarımı yapan işletmeler
  * 👰 Dış çekim hizmeti veren fotoğrafçılar
  * 🏢 Profesyonel fotoğrafçılık ekipleri
-🚀 Kullanım Senaryosu
-Örneğin bir düğün çekiminde müşterinizden 50 fotoğraf seçmesi gerekiyor.
+
+---
+
+## 🚀 Kullanım Senaryosu
+Örneğin bir düğün çekiminde müşterinizden 17 fotoğraf seçmesi gerekiyor.
  * Çekimin bulunduğu klasörü açın.
  * FotoSecim'i çalıştırın.
  * Albüm adını girin.
@@ -205,7 +220,10 @@ Tasarım Yaklaşımı:
  * Kapak ve tablo fotoğrafını belirleyin.
  * Başla butonuna basın.
 Uygulama seçilen fotoğrafları otomatik olarak yeni albüm klasörüne kopyalar. Böylece yüzlerce fotoğraf arasından seçilen dosyaları manuel olarak bulup kopyalama ihtiyacı ortadan kalkar.
-🔐 Dağıtım & Lisans
+
+---
+
+## 🔐 Dağıtım & Lisans
 FotoSecim şu anda özel dağıtım amacıyla geliştirilmektedir. Proje kaynak kodu GitHub üzerinde bulunsa dahi herkese açık hazır EXE dağıtımı yapılmayabilir.
 Bu proje özel kullanım ve dağıtım amacıyla geliştirilmektedir. Kaynak kodunun, uygulamanın veya oluşturulan derlenmiş dosyaların izinsiz olarak yeniden dağıtılması, değiştirilmesi veya ticari amaçla kullanılması proje sahibinin iznine tabidir.
 🗺️ Gelecek Planları
