@@ -30,9 +30,9 @@ Klasörü seç → Albümü oluştur → Fotoğrafları seç → Kapak/Tabloyu b
 
 FotoSecim'in amacı yalnızca fotoğraf seçtirmek değil, seçim sonrasındaki dosya düzenleme işlemini de mümkün olduğunca otomatikleştirmektir.
 
-```
-Geleneksel yöntem
 
+Geleneksel yöntem
+```
 Müşteri fotoğraf numaralarını yazar
               ↓
 Fotoğrafçı numaraları kontrol eder
@@ -135,7 +135,7 @@ FotoSecim otomatik olarak albüm klasörünü oluşturur ve seçilen dosyaları 
 📂 Oluşturulan Klasör Yapısı
 
 Örneğin kaynak klasörünüz:
-
+```
 Düğün_2026/
 ├── IMG_0001.jpg
 ├── IMG_0002.jpg
@@ -143,9 +143,9 @@ Düğün_2026/
 ├── IMG_0004.jpg
 ├── IMG_0005.jpg
 └── ...
-
+```
 Seçim tamamlandıktan sonra:
-
+```
 Düğün_2026/
 ├── IMG_0001.jpg
 ├── IMG_0002.jpg
@@ -161,8 +161,8 @@ Düğün_2026/
     ├── ...
     ├── ALBUM_KAPAK.jpg
     └── TABLO.jpg
-
-«Not: Dosya adlandırma ve çıktı yapısı uygulamanın mevcut sürümündeki yapılandırmaya göre değişebilir.»
+```
+> Not: Dosya adlandırma ve çıktı yapısı uygulamanın mevcut sürümündeki yapılandırmaya göre değişebilir.»
 
 ---
 
@@ -194,7 +194,7 @@ Kısayol| İşlev
 "F"| Tam ekran önizleme
 "Esc"| Önizlemeyi kapat / geri dön
 
-«Kısayollar kullanılan uygulama sürümüne göre değişebilir.»
+> Kısayollar kullanılan uygulama sürümüne göre değişebilir.»
 
 ---
 
@@ -231,69 +231,7 @@ Minimum
 - SSD
 - Yüksek çözünürlüklü fotoğraflar için yeterli boş disk alanı
 
-«EXE sürümünde Python kurulumu gerekmez.»
-
----
-
-🛠️ Geliştirici Kurulumu
-
-Projeyi kaynak kodundan çalıştırmak için:
-
-git clone https://github.com/MuhammedAkay/FotoSecim.git
-cd FotoSecim
-
-Gerekli Python paketlerini yükleyin:
-
-pip install -r requirements.txt
-
-Ardından uygulamayı çalıştırın:
-
-python foto_secim.py
-
----
-
-📦 Windows EXE Oluşturma
-
-Windows üzerinde tek dosyalık çalıştırılabilir sürüm oluşturmak için:
-
-build_windows.bat
-
-Build işlemi tamamlandıktan sonra:
-
-dist/
-└── FotoSecim.exe
-
-oluşturulur.
-
-EXE sürümünün avantajları
-
-- Python kurulumu gerektirmez
-- Ekstra terminal komutlarına ihtiyaç duymaz
-- Tek dosya olarak taşınabilir
-- USB bellek veya başka bir bilgisayara kopyalanabilir
-- Kurulum sihirbazı gerektirmez
-
----
-
-🗂️ Proje Yapısı
-
-Örnek proje yapısı:
-
-FotoSecim/
-│
-├── foto_secim.py
-├── requirements.txt
-├── build_windows.bat
-├── README.md
-│
-├── assets/
-│   ├── icons/
-│   └── images/
-│
-└── dist/
-    └── FotoSecim.exe
-
-«Projenin gerçek klasör yapısı kullanılan sürüme göre farklılık gösterebilir.»
+> EXE sürümünde Python kurulumu gerekmez.»
 
 ---
 
@@ -386,7 +324,7 @@ Projeye ilerleyen sürümlerde aşağıdaki özelliklerin eklenmesi değerlendir
 - [ ] Çoklu albüm işlemleri
 - [ ] Performans iyileştirmeleri
 
-«Yol haritasındaki özellikler kesin geliştirme taahhüdü değildir ve projenin ihtiyaçlarına göre değişebilir.»
+> Yol haritasındaki özellikler kesin geliştirme taahhüdü değildir ve projenin ihtiyaçlarına göre değişebilir.»
 
 ---
 
